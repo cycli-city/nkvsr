@@ -46,7 +46,7 @@ Commands that reproduce the proof are in [`07-TESTING.md`](07-TESTING.md).
 
 | Deliverable | State |
 |---|---|
-| Public GitHub repo, anonymous name `nkvsr`, README | Built. Authored history carries the repo owner's GitHub identity; **the two earliest `main` commits expose an e-mail address as author** (see `docs/STATUS.md`, open items) |
+| Public GitHub repo, anonymous name `nkvsr`, README | Built. Authored history carries the repo owner's GitHub identity; **the two initial `main` commits and the PR merge commit carry the owner's e-mail address as author** (GitHub's "keep my email address private" setting only affects future commits; removing it from the past would need a history rewrite) |
 | Deployment ("Vercel or Heroku") | **UI on Vercel; the Python API on Render** (free Docker service). This is a deliberate reading of the brief: Vercel's Python runtime is size-constrained and stateless for pandas/pyarrow (ADR-012) and Heroku has no free tier. Live and checked by 97 acceptance checks (`docs/11-UAT-REPORT.md`); the free tier sleeps (documented, the UI explains the wait) |
 | ≤ 10-minute unlisted YouTube video (customer pitch + technical review) | **User action**: an exact scene-by-scene run sheet (tabs, clicks, narration, timings ≈ 8:21 in total) is in `docs/08-DEMO-GUIDE.md`; every Part 1 click was rehearsed on the live site |
 | Submission form; incognito check of every URL | **User action** (checklist in `docs/08-DEMO-GUIDE.md` §9) |

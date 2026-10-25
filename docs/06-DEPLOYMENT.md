@@ -138,7 +138,7 @@ Only after every box is ticked, edit README §15 with the URLs and commit.
 Without dashboard access it was done through the two APIs (details and identifiers in `docs/STATUS.md`):
 
 * **Render**: `POST /v1/services` with `type=web_service`, `runtime=docker`, `dockerfilePath=./backend/Dockerfile`,
-  `dockerContext=.`, `plan=free`, the public repo URL and branch `claude/zen-bohr-nfa0ly`, `autoDeploy=yes`; then
+  `dockerContext=.`, `plan=free`, the public repo URL and branch `main` (first created on the feature branch, switched to `main` after the merge of PR #1), `autoDeploy=yes`; then
   `PUT /v1/services/<id>/env-vars/CORS_ORIGINS` and `POST /v1/services/<id>/deploys` once the UI URL was known.
   The blueprint's generated `ADMIN_TOKEN` was deliberately left out, so the refresh endpoint stays disabled.
 * **Vercel**: `vercel link` then `vercel deploy --prod --build-env VITE_API_BASE_URL=<render url>` from `frontend/` (the
