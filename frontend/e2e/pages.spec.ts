@@ -86,6 +86,17 @@ test.describe('Vintages', () => {
     expect(errors).toEqual([])
   })
 
+  test('a half-hour inside a forecast hour says which hour it is scored against', async ({ page }) => {
+    // Forecasts are hourly (like the live WINDFOR feed): 08:30 is held from the 08:00 forecast, 09:00 is not.
+    await page.goto('/vintages?start=2026-01-15T08:30:00Z')
+    const note = page.getByTestId('held-forecast-note')
+    await expect(note).toContainText('forecast for the hour starting 08:00')
+    await expect(note).toContainText('Nothing is interpolated')
+    await page.goto('/vintages?start=2026-01-15T09:00:00Z')
+    await expect(page.getByRole('heading', { name: /15 Jan 2026, 09:00 GMT/ })).toBeVisible()
+    await expect(page.getByTestId('held-forecast-note')).toHaveCount(0)
+  })
+
   test('every "After cutoff" row was published after the cutoff and every eligible row before it', async ({
     page,
   }) => {
@@ -132,6 +143,7 @@ test.describe('Methodology & routing', () => {
       await expect(page.getByRole('heading', { name })).toBeVisible()
     }
     await expect(page.getByText(/Latest forecast now ≠ forecast at the cutoff/)).toBeVisible()
+    await expect(page.getByTestId('hourly-forecast-explainer')).toContainText('60 minutes apart')
   })
 
   test('unknown routes show a friendly 404', async ({ page }) => {

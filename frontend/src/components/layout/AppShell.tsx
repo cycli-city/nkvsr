@@ -113,7 +113,15 @@ function Footer() {
       <div className="mx-auto max-w-7xl space-y-1 px-4 py-6 text-xs leading-relaxed text-slate-500">
         <p>
           {data?.provenance?.attribution ??
-            'Contains BMRS data © Elexon Limited copyright and database right.'}
+            'Contains BMRS data © Elexon Limited copyright and database right.'}{' '}
+          <a
+            className="underline hover:text-slate-700"
+            href="https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            BMRS data licence
+          </a>
         </p>
         <p>
           Wind forecast error is <strong className="font-medium text-slate-700">not</strong> the

@@ -94,8 +94,23 @@ function Detail({ v }: { v: Vintages }) {
   const revision = sel && latest ? latest.forecast_mw - sel.forecast_mw : null
   const dir = errorDirection(selErr)
 
+  const heldFromEarlierBlock = v.forecast_for_time !== v.start_time
   return (
     <div className="space-y-4">
+      {heldFromEarlierBlock && (
+        <div
+          role="note"
+          data-testid="held-forecast-note"
+          className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800"
+        >
+          <p className="font-semibold">Hourly forecast applied to this half-hour</p>
+          <p className="mt-1">
+            WINDFOR publishes one value per hour. The {fmtTime(v.start_time)} half-hour is scored against the
+            forecast for the hour starting <strong>{fmtTime(v.forecast_for_time)}</strong>, and the
+            publications listed below are that hour&apos;s. Nothing is interpolated.
+          </p>
+        </div>
+      )}
       {v.explanation && (
         <div role="note" className="rounded-xl border border-navy-100 bg-navy-50 p-4 text-sm text-navy-900">
           <p className="font-semibold">{v.n_vintages === 0 ? 'No vintage history to show' : 'Note'}</p>

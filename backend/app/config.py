@@ -11,6 +11,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from app.domain.timeutil import parse_hhmm
+from app.domain.vintage import ForecastAlignment
 from app.domain.windows import Basis, parse_month
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -43,6 +44,9 @@ class Settings(BaseSettings):
     stale_forecast_hours: float = Field(default=36.0, gt=0)
     # Delay between a half-hour ending and its FUELHH actual being usable (assumption; verify live).
     actual_availability_lag_minutes: int = Field(default=30, ge=0, le=720)
+    # WINDFOR is hourly while FUELHH is half-hourly (observed live). "hold" applies each forecast hour to
+    # both half-hours it covers; "exact" only matches identical start times (the other half-hour is missing).
+    forecast_alignment: ForecastAlignment = "hold"
 
     # --- Elexon upstream ---------------------------------------------------------------------
     elexon_base_url: str = "https://data.elexon.co.uk/bmrs/api/v1"

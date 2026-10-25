@@ -16,7 +16,9 @@ configurable where useful). Anything not FACT is surfaced in the product's Metho
 ### Default decision cutoff
 
 `cutoff = (delivery_local_date − 1 day) at 09:20 Europe/London`, converted to UTC.
-A forecast is **eligible** iff `publishTime <= cutoff` and its `startTime` equals the delivery interval start.
+A forecast is **eligible** iff `publishTime <= cutoff` and its `startTime` is the start of the forecast block
+that contains the delivery interval (the interval itself for half-hourly forecasts, the containing hour for the
+hourly WINDFOR feed; see section G).
 09:20 is the *earliest* GB day-ahead gate closure, so no forecast that could not have informed *any* GB
 day-ahead bid is used (leak-free default). It is configurable (`DECISION_CUTOFF_LOCAL`, and the
 `cutoff` query parameter / UI selector). All statistics returned by the API echo the cutoff they used.
@@ -40,12 +42,13 @@ day-ahead bid is used (leak-free default). It is configurable (`DECISION_CUTOFF_
 
 | # | Statement | Status |
 |---|---|---|
-| C1 | FUELHH = half-hourly *average* MW by fuel type, from transmission-system operational metering. `WIND` therefore represents **metered transmission-connected wind** and does **not** include embedded (distribution-connected) wind. ([Elexon glossary](https://www.elexon.co.uk/bsc/glossary/half-hourly-generation-by-fuel-type/)) | SOURCED |
-| C2 | WINDFOR = National Grid ESO wind generation forecast, published repeatedly; each record has a delivery `startTime` and a `publishTime`. The legacy BMRS description was *hourly net wind*; the Insights API is expected to be half-hourly. Forecast resolution is **detected from data**, never assumed. | SOURCED / to verify |
-| C3 | `generation` is in **MW** for both datasets. | **UNVERIFIED** — must be confirmed against live responses (`make verify-upstream`) |
-| C4 | `startTime` is a UTC ISO‑8601 instant marking the start of the half-hour. Settlement period *n* of a UK day starts at `local_midnight + (n−1)×30 min`. | UNVERIFIED (to confirm) |
-| C5 | The definitional match between FUELHH `WIND` (metered, transmission) and WINDFOR (forecast scope) may not be exact; any structural bias could partly be a scope mismatch rather than forecast skill. Reported as a limitation. | ASSUMPTION / limitation |
-| C6 | `publishTime` = the instant the forecast became publicly available. Publication latency inside Elexon is unknown and ignored. | ASSUMPTION |
+| C1 | FUELHH = half-hourly *average* MW by fuel type. Elexon's API description says "average MW values over 30 minutes for each category"; its glossary entry (read only as a search excerpt, the page itself was not reachable from the build environment) describes generation connected to the high-voltage transmission system, taken from operational metering ([glossary](https://www.elexon.co.uk/bsc/glossary/half-hourly-generation-by-fuel-type/)). That `WIND` therefore **excludes embedded (distribution-connected) wind** is an *inference*; Elexon does not say so explicitly. | FACT (unit, averaging) / **inference** (scope) |
+| C2 | WINDFOR = wind generation forecast; each record has a delivery `startTime` and a `publishTime`. **Observed 2026-10-25: `startTime` is on whole hours only (60-minute grid), 8 publications per day, up to 73 hourly rows each** (see `docs/04-DATA-SOURCE-VERIFICATION.md`). Resolution is still **detected from the data at every ingestion**, never hard-coded. | **FACT** (observed) |
+| C3 | `generation` is in **MW** for both datasets. FUELHH: stated by Elexon. WINDFOR: not stated; magnitudes (3.8–17.4 GW in the probe) agree with FUELHH, so MW is assumed. | FACT (FUELHH) / **ASSUMPTION** (WINDFOR) |
+| C4 | `startTime` is a UTC ISO‑8601 instant (`Z`) marking the start of the period. Settlement period *n* of a UK day starts at `local_midnight + (n−1)×30 min`. | **FACT** (observed; `settlementPeriod` and `startTime` agree on all 48 rows of the recorded day, a GMT day — DST days are not covered by real data) |
+| C5 | The definitional match between FUELHH `WIND` and WINDFOR (forecast scope) is **not documented**. Observed: the forecast exceeds the actual by ~1.7 GW on average, even for the latest publication, so part of this may be a scope mismatch rather than forecast skill. The analysis cannot separate the two and says so. Reported as a limitation. | UNKNOWN / limitation |
+| C6 | `publishTime` = the instant the forecast became publicly available. Publication latency inside Elexon is unknown and ignored. For WINDFOR the stamps are at :30 (and once :25) past a fixed set of hours, which looks like a scheduled run time. | ASSUMPTION |
+| C7 | **Forecast hour semantics.** A WINDFOR value with `startTime` T is taken to describe the hour starting at T. Not stated by Elexon, and the data cannot settle it: five alignments against the actuals differ by under 30 MW of MAE. | **ASSUMPTION** |
 
 ## D. Procurement interpretation (what the numbers do / do not mean)
 
@@ -65,13 +68,34 @@ reported with their own `n`:
 
 * **Persistence at cutoff** — the last half-hour actual that was *available* at the cutoff, held flat across the
   whole next day. An actual is available once its half-hour has ended **and** a publication lag has elapsed:
-  `start + 30 min + lag <= cutoff`. The lag is an **ASSUMPTION** (default 30 min, `ACTUAL_AVAILABILITY_LAG_MINUTES`)
-  until `verify-upstream` shows FUELHH's real publication delay; a value that has ended but is not yet published
-  cannot influence the baseline (tested).
+  `start + 30 min + lag <= cutoff`, and never before its recorded `publishTime` when that is later. The lag is an
+  **ASSUMPTION** (default 30 min, `ACTUAL_AVAILABILITY_LAG_MINUTES`): live FUELHH rows are stamped at the period end
+  (2,012 of 2,016), so the stamp does not reveal the real delay; four rows were stamped 56–145 min after the start.
+  A value that has ended but is not yet published cannot influence the baseline (tested).
 * **Trailing 7-day mean (same settlement period)** — mean of the same local settlement period over the
   7 *complete* local days D‑8 … D‑2 relative to the delivery day D (D‑1 is incomplete at the cutoff).
 
 No baseline may use an actual that was not yet available at the cutoff (leakage). Tests enforce this.
+
+## G. Hourly forecasts against half-hourly actuals (observed 2026-10-25)
+
+FUELHH has one value per half-hour; WINDFOR has one value per **hour**. Two ways to line them up are
+supported, selected by `FORECAST_ALIGNMENT` (default `hold`), and the response of every analysis states which
+one produced it:
+
+| Mode | Rule | Effect on the data |
+|---|---|---|
+| `hold` (**default**) | A half-hour uses the forecast for the hour that contains it: `block(08:30) = 08:00`. The same publication is chosen for both halves. | All half-hours are scored (coverage 100 % when every hour has a forecast). *n* counts half-hours, which come in pairs sharing one forecast, so the effective number of independent forecast points is about *n*/2. |
+| `exact` | A forecast is used only for the half-hour whose `startTime` equals it. | Half the half-hours have no forecast and are reported as **missing**, giving ~50 % coverage and an "insufficient data" status. Provided so the strict reading stays available. |
+
+Rules that hold in both modes (all unit-tested, including a no-look-ahead test):
+
+* **Nothing is interpolated.** If the forecast hour is absent, both of its half-hours are missing; neighbouring hours are never used.
+* **No look-ahead.** The second half-hour of an hour never takes the *next* hour's value.
+* The **publication cutoff is applied to the held value** exactly as to any other: a publication made after the cutoff is never selected.
+* `block_minutes` is only ever 30 or 60. A forecast grid of any other spacing is treated as half-hourly (so those rows are matched exactly), because holding values over longer blocks would be a modelling claim this product does not make.
+* The hindsight series ("latest published") uses the same block as the decision-time forecast, so the two are comparable.
+* Why `hold` is the default: it is the only reading that scores every delivery interval without inventing a number, and the alternative (averaging the two actuals into hours) would change the unit of analysis away from settlement periods, which the brief's half-hour breakdowns need. With the January data the choice is not material to the conclusion (see `docs/09-REAL-DATA-FINDINGS.md`).
 
 ## F. Data-quality policy
 

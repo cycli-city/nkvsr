@@ -277,6 +277,22 @@ export interface components {
              */
             forecast_basis: "decision_time";
             /**
+             * Forecast Block Minutes
+             * @description Span covered by one WINDFOR value: 60 for the hourly feed under 'hold', else 30.
+             */
+            forecast_block_minutes: number;
+            /**
+             * Forecast Alignment
+             * @description 'hold' applies each forecast hour to both half-hours it covers; 'exact' only matches identical start times.
+             * @enum {string}
+             */
+            forecast_alignment: "hold" | "exact";
+            /**
+             * Forecast Alignment Note
+             * @description How forecasts were mapped onto half-hours; null when the grids already coincide.
+             */
+            forecast_alignment_note: string | null;
+            /**
              * Error Convention
              * @default forecast_minus_actual
              * @constant
@@ -742,6 +758,12 @@ export interface components {
             default_cutoff: string;
             /** Cutoff Presets */
             cutoff_presets: components["schemas"]["CutoffPreset"][];
+            /**
+             * Forecast Alignment
+             * @description How hourly forecasts are mapped onto half-hourly actuals (server setting).
+             * @enum {string}
+             */
+            forecast_alignment: "hold" | "exact";
             thresholds: components["schemas"]["Thresholds"];
             /** Delivery Coverage From */
             delivery_coverage_from: string | null;
@@ -1013,6 +1035,16 @@ export interface components {
             delivery_date: string;
             /** Settlement Period */
             settlement_period: number;
+            /**
+             * Forecast For Time
+             * Format: date-time
+             * @description Start of the WINDFOR block this half-hour's forecast refers to (equals start_time unless forecasts are hourly).
+             */
+            forecast_for_time: string;
+            /** Forecast Block Minutes */
+            forecast_block_minutes: number;
+            /** Forecast Alignment Note */
+            forecast_alignment_note: string | null;
             /** Cutoff Local */
             cutoff_local: string;
             /**

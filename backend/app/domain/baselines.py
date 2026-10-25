@@ -19,8 +19,10 @@ from app.domain import timeutil as tu
 
 # A persistence value older than this at the cutoff is considered stale and not used.
 PERSISTENCE_MAX_STALENESS = pd.Timedelta(hours=6)
-# An actual is not knowable the instant its half-hour ends: FUELHH is published some time later. The default
-# is a conservative ASSUMPTION (configurable via ACTUAL_AVAILABILITY_LAG_MINUTES) pending live verification.
+# An actual is not knowable the instant its half-hour ends: FUELHH is published some time later. Live rows
+# are stamped at the period end (so their stamp says little about real latency); the default lag is a
+# conservative ASSUMPTION (configurable via ACTUAL_AVAILABILITY_LAG_MINUTES). A later recorded publication
+# time always wins over it.
 DEFAULT_AVAILABILITY_LAG = pd.Timedelta(minutes=30)
 TRAILING_DAYS = 7
 TRAILING_MIN_DAYS = 5
@@ -36,11 +38,18 @@ def persistence_at_cutoff(
     """Last actual that was *available* at the cutoff, per interval; NaN if none recent enough.
 
     An actual is available once its half-hour has ended **and** ``availability_lag`` has elapsed, i.e.
-    ``start + 30 min + lag <= cutoff``. Anything later is information the buyer did not yet have.
+    ``start + 30 min + lag <= cutoff``; and, when the record carries one (``actual_publish_utc``), not
+    before that publication time either. Live FUELHH rows are normally stamped at the end of their period,
+    but a few were published up to ~2.5 h later, so the stamp is honoured whenever it is the later of the two.
+    Anything later than that is information the buyer did not yet have.
     """
     act = actuals[["start_utc", "actual_mw"]].copy()
-    act["end_utc"] = tu.as_utc_ns(act["start_utc"]) + tu.HALF_HOUR + availability_lag
-    act["end_utc"] = tu.as_utc_ns(act["end_utc"])
+    available = tu.as_utc_ns(act["start_utc"]) + tu.HALF_HOUR + availability_lag
+    available = tu.as_utc_ns(available)
+    if "actual_publish_utc" in actuals.columns:
+        published = tu.as_utc_ns(actuals["actual_publish_utc"])
+        available = available.where(~(published > available), published)
+    act["end_utc"] = available
     act = act.dropna(subset=["actual_mw"]).sort_values("end_utc", kind="stable")
 
     left = pd.DataFrame({"cutoff_utc": tu.as_utc_ns(intervals["cutoff_utc"])})

@@ -84,6 +84,15 @@ class FakeElexon:
         return httpx.Response(404)
 
 
+class HourlyElexon(FakeElexon):
+    """Like the live WINDFOR feed: forecast rows exist for whole hours only (FUELHH stays half-hourly)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        on_the_hour = self.forecasts["start_utc"].dt.minute == 0
+        self.forecasts = self.forecasts[on_the_hour].reset_index(drop=True)
+
+
 def client_for(settings, handler) -> ElexonClient:  # type: ignore[no-untyped-def]
     async def no_sleep(_: float) -> None:
         return None
@@ -108,6 +117,45 @@ def ingested(tmp_path):  # type: ignore[no-untyped-def]
 
     manifest = asyncio.run(go())
     return settings, app, fake, manifest
+
+
+@pytest.fixture
+def ingested_hourly(tmp_path):  # type: ignore[no-untyped-def]
+    settings = make_settings(tmp_path)
+    app = create_app(settings)
+    fake = HourlyElexon()
+
+    async def go() -> object:
+        client = client_for(settings, fake)
+        try:
+            return await app.state.ingestion.run(client)
+        finally:
+            await client.aclose()
+
+    manifest = asyncio.run(go())
+    return settings, app, manifest
+
+
+def test_hourly_forecast_grid_is_measured_and_disclosed_in_the_manifest(ingested_hourly) -> None:  # type: ignore[no-untyped-def]
+    settings, _, manifest = ingested_hourly
+    snap = read_snapshot(settings.snapshot_dir)
+    assert snap.manifest.quality["forecast_profile"]["start_resolution_minutes"] == 60.0
+    window = snap.manifest.quality["coverage_window"]
+    assert window["forecast_block_minutes"] == 60
+    # Every expected half-hour sits inside a forecast hour that has data, even though only half of the
+    # half-hours carry a forecast row of their own.
+    assert window["intervals_with_any_forecast"] == window["expected_intervals"]
+    assert any("60 minutes apart" in w and "interpolated" in w for w in manifest.warnings)
+
+
+def test_api_scores_every_half_hour_against_its_hours_forecast(ingested_hourly) -> None:  # type: ignore[no-untyped-def]
+    _, app, _ = ingested_hourly
+    with TestClient(app) as client:
+        body = client.get("/api/summary").json()
+    assert body["analysis"]["forecast_block_minutes"] == 60
+    assert body["metrics"]["n"] == 1488
+    assert body["metrics"]["mae_mw"] == pytest.approx(ELIGIBLE_MW - ACTUAL_MW)
+    assert body["coverage"]["coverage"] == 1.0
 
 
 def test_pipeline_produces_a_loadable_snapshot_with_provenance(ingested) -> None:  # type: ignore[no-untyped-def]

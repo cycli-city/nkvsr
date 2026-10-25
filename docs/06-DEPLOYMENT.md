@@ -22,11 +22,14 @@ every cold start. A container keeps production identical to local Docker. If you
 
 | Need | Why | Action |
 |---|---|---|
-| GitHub write access for the Claude app (or push from your own machine) | the sandbox's `git push` returned 403 | install the app at <https://github.com/apps/claude/installations/select_target> or push the local branch yourself |
-| A machine that can reach `data.elexon.co.uk` | real data + schema verification | your laptop is fine |
+| GitHub write access for the Claude app (or push from your own machine) | **done**: access was reconnected and the branch is pushed | (only if it breaks again) install the app at <https://github.com/apps/claude/installations/select_target> |
+| A machine that can reach `data.elexon.co.uk` | only to *refresh* the data: **the real January 2026 snapshot is already committed** (`data/snapshots/current`) and verified | your laptop is fine |
 | Vercel + Render accounts | hosting | free tiers suffice |
 
-## 1. Verify Elexon and build the real snapshot (on a connected machine)
+## 1. Verify Elexon and build the real snapshot (already done: repeat only to refresh)
+
+> The snapshot retrieved on 2026-10-25 is committed and the API image bakes it in, so **you can skip this section and go
+> straight to deployment**. Re-run it only to refresh the data; then commit the new `data/snapshots/current/`.
 
 ```bash
 git clone <repo> && cd <repo> && make setup
@@ -40,7 +43,7 @@ Read `docs/generated/elexon-verification.md` **before** trusting any number:
 * If it says FAIL or lists missing fields/parameters: fix `backend/app/elexon/endpoints.py` / `contract.py` (the only files
   that encode upstream assumptions), re-run, and keep the captured samples as real test fixtures.
 * Confirm `generation` magnitudes are plausible MW (a few thousand to ~15,000) and update
-  `docs/04-DATA-SOURCE-VERIFICATION.md` (flip UNVERIFIED → VERIFIED with the evidence).
+  `docs/04-DATA-SOURCE-VERIFICATION.md` (record what was observed; it already lists the 2026-10-25 findings).
 * Check `manifest.json`: `provenance: "elexon_live"`, `warnings` is empty or understood, forecast resolution/cadence noted.
 
 Commit the vetted snapshot and the verification output:

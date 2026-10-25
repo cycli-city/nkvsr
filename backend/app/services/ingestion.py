@@ -19,6 +19,7 @@ import pandas as pd
 
 from app.config import Settings
 from app.domain import timeutil as tu
+from app.domain.vintage import forecast_block_starts, resolve_block_minutes
 from app.domain.windows import required_delivery_coverage
 from app.elexon import endpoints
 from app.elexon.client import ElexonClient
@@ -97,13 +98,16 @@ async def build_manifest_and_frames(
         (actuals["start_utc"] >= w.coverage_from) & (actuals["start_utc"] < w.coverage_to)
     ]
     with_actual = int(in_window["start_utc"].isin(expected).sum())
-    with_forecast = int(pd.Series(forecasts["start_utc"].unique()).isin(expected).sum())
     profile = profile_forecasts(forecasts)
     resolution = profile["start_resolution_minutes"]
+    block_minutes = resolve_block_minutes("hold", resolution)
+    covered = forecast_block_starts(pd.Series(expected), block_minutes)
+    with_forecast = int(covered.isin(forecasts["start_utc"]).sum())
     if resolution and resolution != 30:
         warnings.append(
-            f"Forecast start-time resolution is {resolution:g} minutes, not 30: half-hours without a "
-            "forecast are reported as missing, never interpolated."
+            f"WINDFOR start times are {resolution:g} minutes apart but FUELHH actuals are half-hourly. "
+            "With FORECAST_ALIGNMENT=hold each forecast hour is applied to both half-hours it covers; "
+            "with 'exact' the other half-hours count as missing. Nothing is interpolated."
         )
     rate = _rate(with_actual, len(expected))
     if rate is not None and rate < 0.99:
@@ -146,6 +150,7 @@ async def build_manifest_and_frames(
                 "expected_intervals": len(expected),
                 "intervals_with_actual": with_actual,
                 "intervals_with_any_forecast": with_forecast,
+                "forecast_block_minutes": block_minutes,
             },
         },
         warnings=warnings,

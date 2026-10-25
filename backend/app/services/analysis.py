@@ -40,7 +40,7 @@ from app.domain.metrics import (
     data_status,
     skill_vs_baseline,
 )
-from app.domain.vintage import list_vintages
+from app.domain.vintage import forecast_block_starts, list_vintages, resolve_block_minutes
 from app.domain.windows import (
     Basis,
     InvalidWindowError,
@@ -265,9 +265,37 @@ class AnalysisService:
         cutoff_time, cutoff_str = self.parse_cutoff(cutoff)
         return Ctx(dataset, window, cutoff_time, cutoff_str)
 
+    def forecast_block_minutes(self, dataset: Dataset) -> int:
+        """Span of one forecast value: 60 for the hourly WINDFOR feed under ``hold``, else 30."""
+        profile = dataset.manifest.quality.get("forecast_profile") or {}
+        return resolve_block_minutes(
+            self._settings.forecast_alignment, profile.get("start_resolution_minutes")
+        )
+
+    def alignment_note(self, dataset: Dataset) -> str | None:
+        """Plain-language statement of how forecasts were mapped onto half-hours (None if 1:1)."""
+        profile = dataset.manifest.quality.get("forecast_profile") or {}
+        observed = profile.get("start_resolution_minutes")
+        if observed is None or abs(float(observed) - 30.0) < 1e-6:
+            return None
+        if self.forecast_block_minutes(dataset) == 60:
+            return (
+                "WINDFOR forecasts are published per whole hour, FUELHH actuals per half-hour. Each forecast "
+                "hour is applied unchanged to both half-hours it covers (nothing is interpolated), so n counts "
+                "half-hours and they come in pairs that share one forecast."
+            )
+        return (
+            f"WINDFOR forecasts have a {float(observed):g}-minute start-time grid but FUELHH actuals are "
+            "half-hourly. Forecasts are matched only to the half-hour with an identical start time, so the "
+            "other half-hours are reported as missing, never filled."
+        )
+
     def analysis_echo(self, ctx: Ctx) -> s.AnalysisEcho:
         w = ctx.window
         return s.AnalysisEcho(
+            forecast_block_minutes=self.forecast_block_minutes(ctx.dataset),
+            forecast_alignment=self._settings.forecast_alignment,
+            forecast_alignment_note=self.alignment_note(ctx.dataset),
             basis=w.basis,
             decision_from=w.decision_from,
             decision_to=w.decision_to,
@@ -310,6 +338,7 @@ class AnalysisService:
             actuals=ds.actuals,
             forecasts=self._forecasts_for_window(ds, ctx),
             as_of=ds.retrieved_at,
+            forecast_block_minutes=self.forecast_block_minutes(ds),
         )
         frame = add_baselines(
             frame,
@@ -532,6 +561,9 @@ class AnalysisService:
                 .dt.strftime("%Y-%m-%d %H:%M"),
                 "settlement_period": frame["settlement_period"],
                 "decision_cutoff_utc": frame["cutoff_utc"].dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "forecast_valid_for_utc": frame["forecast_for_utc"].dt.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
                 "forecast_publish_utc": frame["publish_utc"].dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "forecast_mw": frame["forecast_mw"],
                 "actual_mw": frame["actual_mw"],
@@ -565,7 +597,9 @@ class AnalysisService:
             )
 
         cutoff_utc = tu.cutoff_utc_for_delivery_date(delivery_day, cutoff_time)
-        table = list_vintages(dataset.forecasts, start_utc, cutoff_utc)
+        block_minutes = self.forecast_block_minutes(dataset)
+        table = list_vintages(dataset.forecasts, start_utc, cutoff_utc, block_minutes=block_minutes)
+        forecast_for = forecast_block_starts(pd.Series([start_utc]), block_minutes).iloc[0]
         actual_row = dataset.actuals[dataset.actuals["start_utc"] == start_utc]
         actual = num(actual_row["actual_mw"].iloc[-1]) if len(actual_row) else None
 
@@ -601,6 +635,9 @@ class AnalysisService:
             local_label=start_utc.tz_convert(tu.LONDON).strftime("%Y-%m-%d %H:%M"),
             delivery_date=delivery_day,
             settlement_period=int(tu.settlement_periods(pd.Series([start_utc])).iloc[0]),
+            forecast_for_time=forecast_for.to_pydatetime(),
+            forecast_block_minutes=block_minutes,
+            forecast_alignment_note=self.alignment_note(dataset),
             cutoff_local=cutoff_str,
             cutoff_time=cutoff_utc.to_pydatetime(),
             actual_mw=actual,
@@ -719,6 +756,7 @@ class AnalysisService:
             "default_basis": cfg.default_basis,
             "default_cutoff": cfg.decision_cutoff_local,
             "cutoff_presets": CUTOFF_PRESETS,
+            "forecast_alignment": cfg.forecast_alignment,
             "thresholds": s.Thresholds(
                 coverage_sufficient=cfg.coverage_sufficient,
                 coverage_partial=cfg.coverage_partial,

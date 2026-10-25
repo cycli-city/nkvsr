@@ -10,6 +10,8 @@ visible as a gap, not silently absent). Columns:
 ``slot``                  local wall-clock ``HH:MM`` (time-of-day breakdowns)
 ``daypart``               ``day`` = 07:00-23:00 local, ``night`` otherwise
 ``cutoff_utc``            decision cutoff applicable to this interval
+``forecast_for_utc``      start of the WINDFOR block the forecast refers to (== ``start_utc`` for
+                          half-hourly forecasts, the containing hour for hourly ones)
 ``actual_mw``             FUELHH WIND (NaN if missing)
 ``forecast_mw``           latest WINDFOR value with ``publish_utc <= cutoff_utc`` (decision-time)
 ``publish_utc``          publication time of that forecast
@@ -74,11 +76,14 @@ def build_matched_frame(
     actuals: pd.DataFrame,
     forecasts: pd.DataFrame,
     as_of: pd.Timestamp | None = None,
+    forecast_block_minutes: int = 30,
 ) -> pd.DataFrame:
     """Join actuals and decision-time forecasts onto the expected intervals (one row each).
 
     ``actuals`` must have unique ``start_utc`` (+ ``actual_mw``); ``forecasts`` carries every
-    publication (``start_utc``, ``publish_utc``, ``forecast_mw``).
+    publication (``start_utc``, ``publish_utc``, ``forecast_mw``). ``forecast_block_minutes`` is the
+    span one forecast value covers (60 for the hourly WINDFOR feed): each half-hour then uses the
+    forecast of the block containing it, never an interpolated value.
     """
     frame = expected_intervals(delivery_from, delivery_to, cutoff_local, as_of=as_of)
     n_expected = len(frame)
@@ -91,11 +96,12 @@ def build_matched_frame(
         )
     frame = frame.merge(act, on="start_utc", how="left", validate="one_to_one")
 
-    chosen = select_at_cutoff(frame, forecasts)
+    chosen = select_at_cutoff(frame, forecasts, block_minutes=forecast_block_minutes)
+    frame["forecast_for_utc"] = tu.as_utc_ns(chosen["forecast_start_utc"])
     frame["publish_utc"] = chosen["publish_utc"].to_numpy()
     frame["forecast_mw"] = chosen["forecast_mw"].to_numpy()
 
-    latest = latest_published(forecasts, frame["start_utc"])
+    latest = latest_published(forecasts, frame["start_utc"], block_minutes=forecast_block_minutes)
     frame["latest_publish_utc"] = latest["latest_publish_utc"].to_numpy()
     frame["latest_forecast_mw"] = latest["latest_forecast_mw"].to_numpy()
 

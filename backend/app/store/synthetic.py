@@ -64,8 +64,9 @@ def generate(settings: Settings, *, seed: int = 7, gap_fraction: float = 0.002) 
     actuals = actuals[~drop].reset_index(drop=True)
 
     # Forecast vintages: error std grows with lead time; errors are smooth across publications.
+    # Like the live WINDFOR feed (observed 2026-10-25), forecasts exist for whole hours only.
     targets = pd.date_range(
-        w.coverage_from, w.coverage_to, freq="30min", inclusive="left", unit="ns"
+        w.coverage_from, w.coverage_to, freq="60min", inclusive="left", unit="ns"
     )
     truth = pd.Series(actual, index=starts).reindex(targets).to_numpy()
     rows_start: list[pd.DatetimeIndex] = []
@@ -112,7 +113,11 @@ def generate(settings: Settings, *, seed: int = 7, gap_fraction: float = 0.002) 
         delivery_coverage_to=w.delivery_last,
         actuals_rows=len(actuals),
         forecasts_rows=len(forecasts),
-        quality={"synthetic": True, "seed": seed},
+        quality={
+            "synthetic": True,
+            "seed": seed,
+            "forecast_profile": {"start_resolution_minutes": 60.0},
+        },
         warnings=[SYNTHETIC_WARNING],
     )
     return write_snapshot(settings.snapshot_dir, actuals, forecasts, manifest)

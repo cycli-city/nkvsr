@@ -5,10 +5,10 @@ the national wind forecast a buyer could actually see at the day-ahead decision 
 accurate that forecast turned out to be, using only Elexon's FUELHH (actuals) and WINDFOR (forecasts) datasets.
 
 > **Status at a glance** (details in [Verification status](#verification-status))
-> The analytics engine, API, UI, Docker, CI and tests are built and tested end to end. **Two things need a machine with
-> internet access to Elexon and your accounts, and have *not* been done yet:** fetching the real January 2026 data
-> (`make ingest`) and the Vercel/Render deployment. Until then the repository ships **no real-data snapshot** and
-> **no deployment URL**, and says so rather than faking either.
+> The analytics engine, API, UI, Docker, CI and tests are built and tested end to end, and the **real January 2026 Elexon
+> data has been fetched, verified against the live API and committed** (`data/snapshots/current`). **What is still not
+> done, because it needs your accounts:** the Vercel/Render deployment and the demo video. The repository ships **no
+> deployment URL** until those are opened and verified, and says so rather than faking one.
 
 ---
 
@@ -130,14 +130,16 @@ Base URL `https://data.elexon.co.uk/bmrs/api/v1` (configurable). Datasets named 
 
 | Dataset | Endpoint | Fields used | Interpretation |
 |---|---|---|---|
-| FUELHH (actuals) | `GET /datasets/FUELHH/stream?settlementDateFrom&settlementDateTo&fuelType=WIND` | `startTime`, `generation`, `fuelType` (+`publishTime` if present) | Half-hourly *average MW* of metered, transmission-connected wind. Rows filtered to `fuelType = WIND` again client-side. |
-| WINDFOR (forecasts) | `GET /datasets/WINDFOR/stream?publishDateTimeFrom&publishDateTimeTo` | `startTime` (delivery), `publishTime` (when created), `generation` | Many publications per delivery half-hour. **Delivery time and publication time are never conflated.** |
+| FUELHH (actuals) | `GET /datasets/FUELHH/stream?settlementDateFrom&settlementDateTo&fuelType=WIND` | `startTime`, `generation`, `fuelType` (+`publishTime`) | Half-hourly *average MW* (Elexon: "average MW values over 30 minutes"). Rows filtered to `fuelType = WIND` again client-side. |
+| WINDFOR (forecasts) | `GET /datasets/WINDFOR/stream?publishDateTimeFrom&publishDateTimeTo` | `startTime` (delivery), `publishTime` (when created), `generation` | **Hourly** values (`startTime` on whole hours), 8 publications a day, each up to 73 hours long. **Delivery time and publication time are never conflated.** |
 
-> ⚠️ **Not yet verified against the live service.** The build environment could not reach `data.elexon.co.uk` (blocked by its
-> network policy), so parameter names, response envelope, units (MW), forecast resolution and history coverage are
-> *documented expectations*, isolated in one adapter and guarded by a contract check that fails loudly on any mismatch.
-> Run **`make verify-upstream`** once to record what the API really returns (writes `docs/generated/elexon-verification.md`
-> and real response samples for tests). Checklist: [`docs/04-DATA-SOURCE-VERIFICATION.md`](docs/04-DATA-SOURCE-VERIFICATION.md).
+> ✅ **Verified live on 2026-10-25** (`make verify-upstream` → PASS; evidence in
+> [`docs/generated/elexon-verification.md`](docs/generated/elexon-verification.md)): the endpoints, parameters, field names,
+> bare-array envelope, UTC `Z` timestamps and January 2026 history all behave as the adapter expects. Two findings shaped the
+> product: **WINDFOR is hourly while FUELHH is half-hourly** (handled explicitly, §7), and **the 09:30 publication lands ten
+> minutes after the default 09:20 cutoff on every day** (§8). Still *assumptions*, and labelled as such: WINDFOR's unit (MW) and
+> exact scope (not stated by Elexon), and which part of the hour a value describes. Full table:
+> [`docs/04-DATA-SOURCE-VERIFICATION.md`](docs/04-DATA-SOURCE-VERIFICATION.md).
 
 Ingestion handles upstream errors/timeouts (retry with backoff), missing / malformed / duplicate / out-of-order records,
 naive timestamps (rejected, never assumed), off-grid timestamps, and negative values (kept, counted). Dropped rows are counted
@@ -148,11 +150,17 @@ naive timestamps (rejected, never assumed), off-grid timestamps, and negative va
 For a delivery interval *i* on local day *D* the **decision cutoff** is `cutoff_local` (default **09:20 Europe/London**) on *D−1*:
 
 ```
-eligible(i) = { f : f.startTime = i.startTime  AND  f.publishTime <= cutoff(D-1) }
+eligible(i) = { f : f.startTime = block(i)  AND  f.publishTime <= cutoff(D-1) }
 used(i)     = the f in eligible(i) with the latest publishTime        (exactly one row per interval)
+block(i)    = the forecast hour containing half-hour i               (i itself if forecasts were half-hourly)
 ```
 
-* Implemented with `pd.merge_asof(by=startTime, direction="backward", allow_exact_matches=True)`; a test asserts that
+* **Hourly forecasts vs half-hourly actuals.** WINDFOR has one value per hour. By default (`FORECAST_ALIGNMENT=hold`) each
+  forecast hour is applied unchanged to both half-hours it covers; with `exact` only identical start times match and the
+  rest are reported as missing. Nothing is interpolated, a half-hour never borrows the *next* hour's value, the cutoff applies
+  to the held value, and every API response and screen states the rule in use. *n* counts half-hours that come in pairs
+  sharing one forecast. On the January data the choice moves headline MAE by under 1 % ([`docs/09`](docs/09-REAL-DATA-FINDINGS.md) §4).
+* Implemented with `pd.merge_asof(by=forecast block start, direction="backward", allow_exact_matches=True)`; a test asserts that
   50+ revisions per interval never change the sample count. Mutation checks confirm that flipping `<=` to `<`, or
   `backward` to `nearest`, fails the suite.
 * 09:20 is the **earliest** GB day-ahead gate closure (EPEX SPOT), so nothing unusable at any auction is used. N2EX is
@@ -184,8 +192,22 @@ All headline metrics use **one eligible set** (both an actual and a decision-tim
 missing-forecast / missing-actual / missing-both counts, over/under split, signed and absolute quantiles, a histogram, daily
 / half-hour-slot / day-night breakdowns and the largest misses. MAPE is deliberately omitted (explodes near zero output).
 **Baselines** are information-valid at the cutoff: *persistence* (last actual that was complete **and published**, assuming a
-30-minute availability lag, held flat) and *trailing 7-day mean* (same period over D−8…D−2). Tests assert nothing unavailable
-at the cutoff can change them.
+30-minute availability lag and never earlier than the record's own publication time, held flat) and *trailing 7-day mean*
+(same period over D−8…D−2). Tests assert nothing unavailable at the cutoff can change them.
+
+### Headline results on the real data
+
+Real Elexon snapshot retrieved 2026-10-25; decisions 1–31 Jan 2026 (deliveries 2 Jan–1 Feb), cutoff 09:20, n = 1,488
+half-hours, coverage 100 %. Produced by this repository's engine; how to reproduce and everything else in
+[`docs/09-REAL-DATA-FINDINGS.md`](docs/09-REAL-DATA-FINDINGS.md).
+
+| MAE | RMSE | Bias (forecast − actual) | WAPE | Over-forecast share | MAE vs persistence / trailing mean |
+|---|---|---|---|---|---|
+| **2,042 MW** | 2,509 MW | **+1,748 MW** | 18.1 % | 84.7 % of half-hours | 51 % / 54 % lower |
+
+The forecast beats both naive baselines but is **consistently too high**. Whether that is forecast error or a difference in
+what WINDFOR and FUELHH WIND each cover cannot be settled with this data (stated on the Methodology page). The result does not
+depend on the exact cutoff: every cutoff from 08:00 to 09:29 selects the same 07:30 publication.
 
 ## 9. Date & time-zone assumptions
 
@@ -238,7 +260,8 @@ Everything is environment-driven; see [`.env.example`](.env.example) (placeholde
 | `DATA_DIR` | `./data` | snapshots in `$DATA_DIR/snapshots/current` |
 | `AUTO_INGEST_ON_START` | `false` | fetch from Elexon on first boot if no snapshot exists |
 | `ADMIN_TOKEN` | *(empty)* | ≥16 chars enables `POST /api/admin/refresh`; empty keeps it disabled |
-| `ACTUAL_AVAILABILITY_LAG_MINUTES` | `30` | assumed delay before a half-hour's actual is usable (baseline leakage guard) |
+| `ACTUAL_AVAILABILITY_LAG_MINUTES` | `30` | assumed delay before a half-hour's actual is usable (baseline leakage guard; a later recorded publication time always wins) |
+| `FORECAST_ALIGNMENT` | `hold` | WINDFOR is hourly, FUELHH half-hourly: `hold` applies each forecast hour to both half-hours it covers, `exact` only matches identical start times (the rest are reported missing) |
 | `ELEXON_*` | see file | base URL, timeout, retries, backoff, concurrency, chunk sizes |
 | `VITE_API_BASE_URL` (frontend build) | *(empty = same-origin)* | absolute API origin when UI and API are on different hosts |
 
@@ -275,8 +298,9 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 
 ## 16. Known limitations & future improvements
 
-* **Live Elexon behaviour is unverified** (see §6). The first `make verify-upstream` may require adjusting `endpoints.py` / `contract.py`; the design confines such changes to those two files.
-* Wind only; no demand/price/solar/contract data; FUELHH WIND is *metered transmission* wind and WINDFOR's scope may differ slightly, so part of any persistent bias may be definitional.
+* **Still assumptions about the live data** (see §6): WINDFOR's unit (MW; the magnitudes agree with FUELHH but Elexon states none), its scope relative to FUELHH WIND, and which part of the hour an hourly value describes. DST-day behaviour is unit-tested but not covered by real data, because January is entirely GMT.
+* Hourly forecasts are applied to both half-hours (§7), so *n* counts half-hours in pairs that share a forecast; the effective sample is about half of *n*.
+* Wind only; no demand/price/solar/contract data. Elexon describes FUELHH as generation connected to the transmission system and does not say whether WINDFOR covers the same scope, so part of the observed +1.7 GW bias may be definitional rather than forecast skill.
 * The 09:20 cutoff is an upper bound on knowable information; real bid preparation is earlier (use the cutoff selector to test sensitivity).
 * One month of history: statistics describe January 2026 and may not generalise across seasons.
 * The API image is ~690 MB (pyarrow alone is ~170 MB); switching snapshots to gzip-CSV would remove it at the cost of typed dtypes.
@@ -297,19 +321,19 @@ What has **actually been run and observed** (not just written):
 
 | Check | Result |
 |---|---|
-| Backend: `pytest` (unit, API, mocked-Elexon end-to-end ingestion) | ✅ passing (252 tests) |
+| Backend: `pytest` (unit, API, mocked-Elexon end-to-end ingestion, recorded real responses) | ✅ passing (298 tests) |
 | Backend: `ruff`, `ruff format --check`, `mypy --strict` | ✅ clean |
-| Backend mutation checks (cutoff `<=`, `backward`, error sign, baseline lag) | ✅ each caught by tests |
-| Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 68 passing |
-| Frontend: Playwright E2E + axe (Chromium, production build, real API) | ✅ 41 passing |
+| Backend mutation checks (cutoff `<=`, `backward`, error sign, baseline lag, forecast-hour rounding, publication-time rule) | ✅ each caught by tests |
+| Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 75 passing |
+| Frontend: Playwright E2E + axe (Chromium, production build, real API) | ✅ 43 passing (on the labelled synthetic snapshot) |
 | Docker: API and web images build; run non-root; healthy; production refuses synthetic data | ✅ |
 | Docker Compose stack: service discovery, health-gated start, browser → nginx → API | ✅ (run on synthetic data) |
-| **Live Elexon API: schema, parameters, units, history coverage** | ❌ **not possible from the build sandbox: run `make verify-upstream`** |
-| **Real January 2026 snapshot committed** | ❌ **run `make ingest`** |
+| **Live Elexon API: schema, parameters, history coverage** | ✅ **`make verify-upstream` PASS on 2026-10-25**; WINDFOR unit and scope remain assumptions |
+| **Real January 2026 snapshot** | ✅ **ingested and committed** (`data/snapshots/current`); results in [`docs/09`](docs/09-REAL-DATA-FINDINGS.md) |
+| GitHub Actions CI | ✅ run 3 (`b78b322`): all 5 jobs passed; a first run had caught a real 320 px layout bug (fixed). Later runs: `docs/STATUS.md` |
 | **Vercel / Render deployment, incognito verification, demo video** | ❌ **need your accounts: see `docs/06-DEPLOYMENT.md`, `docs/08-DEMO-GUIDE.md`** |
-| GitHub Actions CI run | ❌ not run yet (config written and YAML-validated; the push to GitHub was blocked) |
 
-Everything observed in the UI during development used a **synthetic** snapshot, which is stamped, banner-labelled and
-refused in production; none of those numbers are results.
+The browser (Playwright) tests and CI's Compose smoke test run on a **synthetic** snapshot, which is stamped, banner-labelled and
+refused in production; those numbers are never results. The figures in this README come from the real snapshot.
 
 *Contains BMRS data © Elexon Limited copyright and database right.*

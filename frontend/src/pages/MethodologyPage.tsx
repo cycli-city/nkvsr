@@ -168,7 +168,17 @@ export function MethodologyPage() {
         ) : (
           <p className="text-amber-800">No snapshot is currently loaded.</p>
         )}
-        <p className="text-xs text-slate-500">{meta.provenance?.attribution}</p>
+        <p className="text-xs text-slate-500">
+          {meta.provenance?.attribution}{' '}
+          <a
+            className="underline hover:text-slate-700"
+            href="https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            BMRS data licence
+          </a>
+        </p>
       </Block>
 
       <Block id="decision-time" title="Which forecast counts: the decision-time rule">
@@ -177,8 +187,9 @@ export function MethodologyPage() {
           <em>D</em> we use the <strong>most recent forecast published at or before the cutoff</strong> on
           D−1:
         </p>
-        <Formula>{`eligible(i)  = { f : f.startTime = i.startTime  AND  f.publishTime <= cutoff(D-1) }
-used(i)      = argmax over eligible(i) of f.publishTime        (one forecast per half-hour)`}</Formula>
+        <Formula>{`eligible(i)  = { f : f.startTime = block(i)  AND  f.publishTime <= cutoff(D-1) }
+used(i)      = argmax over eligible(i) of f.publishTime        (one forecast per half-hour)
+block(i)     = the forecast hour containing half-hour i (i itself when forecasts are half-hourly)`}</Formula>
         <p>
           Current cutoff: <strong>{cutoff} Europe/London</strong> on the day before delivery. The default,
           09:20, is the earliest GB day-ahead gate closure (EPEX SPOT), so no forecast is used that could not
@@ -193,6 +204,33 @@ used(i)      = argmax over eligible(i) of f.publishTime        (one forecast per
           the Vintages view) includes those revisions. It is hindsight and is <em>never</em> used for any KPI;
           it appears only to show what later information would have added.
         </p>
+        {profile?.start_resolution_minutes != null && profile.start_resolution_minutes !== 30 && (
+          <div
+            className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-800"
+            data-testid="hourly-forecast-explainer"
+          >
+            <p className="font-semibold">Hourly forecasts, half-hourly actuals</p>
+            <p className="mt-1">
+              Measured on the stored data, WINDFOR start times are{' '}
+              <strong>{profile.start_resolution_minutes} minutes apart</strong>, while FUELHH actuals are
+              half-hourly (average MW per settlement period).{' '}
+              {meta.forecast_alignment === 'hold' ? (
+                <>
+                  Each forecast hour is applied unchanged to both half-hours it covers, so <em>n</em> counts
+                  half-hours and they come in pairs that share one forecast. Nothing is interpolated, and a
+                  half-hour never uses the next hour&apos;s forecast.
+                </>
+              ) : (
+                <>
+                  This deployment is set to <em>exact</em> matching: a forecast is used only for the half-hour
+                  with an identical start time, so the other half-hours are reported as missing, never filled.
+                </>
+              )}{' '}
+              Which part of the hour the value represents is not stated in the API documentation; the data
+              cannot settle it either, because wind changes little within half an hour.
+            </p>
+          </div>
+        )}
       </Block>
 
       <Block id="interpretation" title={`What does "decisions made in ${month}" mean?`}>
@@ -355,8 +393,9 @@ Skill    = 1 - MAE_forecast / MAE_baseline   (same intervals; unavailable if MAE
             balancing data.
           </li>
           <li>
-            FUELHH WIND measures transmission-connected wind; the WINDFOR forecast may cover a slightly
-            different scope, so part of any persistent bias could be definitional rather than forecast skill.
+            The API documentation does not say whether FUELHH WIND and WINDFOR cover the same scope (for
+            example transmission-connected wind only, or embedded wind too). Part of any persistent bias could
+            therefore be definitional rather than forecast skill; this analysis cannot tell the two apart.
           </li>
           <li>
             <code className="font-mono text-xs">publishTime</code> is taken as the moment a forecast became

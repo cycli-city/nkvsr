@@ -6,10 +6,10 @@ Only things that were **actually run** are claimed. Counts are as of this commit
 
 | Layer | Tool | Count (at writing) | What it protects |
 |---|---|---|---|
-| Backend domain & ingestion unit tests | pytest | 180 | time/DST maths, cutoff rule, vintage selection, matching, metric formulas, baselines (leakage), normalisation, retry/backoff, snapshot integrity, settings |
-| Backend API + integration | pytest + FastAPI TestClient | 72 (62 API + 10 ingestion e2e) | closed-form metrics through the API, validation & error envelope, CORS, empty/corrupt/synthetic-in-production states, admin guard, **mocked-Elexon → snapshot → API end-to-end**, failure keeps previous snapshot |
-| Frontend logic & integration | Vitest + Testing Library | 68 | UK-time formatting incl. BST/DST, URL state, API client + error mapping, whole-app flows against a typed mock API, chart-index helper |
-| End-to-end + accessibility | Playwright (Chromium) + axe-core | 41 | real browser vs real API + production build: drill-downs, interpretations, filters/sort/CSV, vintage invariants, API-down/slow/error/no-data, no horizontal overflow at 320–1280 px, keyboard use, WCAG 2.1 A/AA |
+| Backend domain & ingestion unit tests | pytest | 206 | time/DST maths, cutoff rule, vintage selection, **hourly-forecast alignment (hold/exact, no look-ahead, no interpolation)**, matching, metric formulas, baselines (leakage, late publication), normalisation, retry/backoff, snapshot integrity, settings |
+| Backend API + integration | pytest + FastAPI TestClient | 92 (72 API + 20 integration) | closed-form metrics through the API (also on an hourly-forecast snapshot), validation & error envelope, CORS, empty/corrupt/synthetic-in-production states, admin guard, **mocked-Elexon → snapshot → API end-to-end** (half-hourly and hourly feeds), failure keeps previous snapshot, **contract tests on a recorded real Elexon delivery day** |
+| Frontend logic & integration | Vitest + Testing Library | 75 | UK-time formatting incl. BST/DST, URL state, API client + error mapping, whole-app flows against a typed mock API, chart-index helper |
+| End-to-end + accessibility | Playwright (Chromium) + axe-core | 43 | real browser vs real API + production build: drill-downs, interpretations, filters/sort/CSV, vintage invariants, API-down/slow/error/no-data, no horizontal overflow at 320–1280 px, keyboard use, WCAG 2.1 A/AA |
 | Static quality | ruff · mypy `--strict` · ESLint · Prettier · `tsc --strict` | – | style, types, hooks rules, generated-API-type drift (CI `contract` job) |
 | Container smoke test | docker / compose | manual + CI `docker` job | image builds, non-root, health, nginx proxy, production-refuses-synthetic |
 
@@ -22,7 +22,8 @@ make check       # everything CI runs except e2e + docker
 
 ## Determinism
 
-* No test calls the live Elexon API. Upstream behaviour is simulated with `httpx.MockTransport` (client tests, ingestion e2e).
+* No test calls the live Elexon API. Upstream behaviour is simulated with `httpx.MockTransport` (client tests, ingestion e2e), and
+  `tests/integration/test_real_recorded_responses.py` replays **one real delivery day recorded from the live API** (`tests/fixtures/real/`).
 * "Exact" fixtures have closed-form answers (actual 1000 MW; decision-time forecast 1100 MW; a *later* revision 1010 MW). A wrong
   vintage choice therefore produces a wrong **number** (MAE would be 10 instead of 100), not just a wrong flag.
 * Fixtures are labelled *test data*; the synthetic dev snapshot is a separate, guarded artefact and is never used for evidence.
@@ -44,6 +45,9 @@ make check       # everything CI runs except e2e + docker
 | Corrupt snapshot refused | `test_corrupt_snapshot_is_refused_not_served`, `TestSnapshot` |
 | `.env.example` must not enable the admin endpoint | `test_env_example.py` |
 | Retry/backoff, `Retry-After`, 4xx not retried, partial fetch never accepted | `test_elexon_client.py` |
+| Hourly forecasts vs half-hourly actuals: every half-hour scored, never interpolated, never borrows the next hour, cutoff applies to the held value | `test_forecast_alignment.py`, `test_api_hourly_forecasts.py`, `test_ingestion_e2e.py` (hourly feed) |
+| Real-feed facts the rules depend on (hourly grid, eight publications, 07:30 in force and 09:30 ten minutes late at 09:20) | `test_real_recorded_responses.py` |
+| An actual published late cannot inform the persistence baseline early | `test_baselines_breakdowns_windows.py` |
 
 ## Mutation checks (do the tests have teeth?)
 
@@ -58,6 +62,8 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 | trailing-mean baseline shifted by 1 day (uses D−1) | baseline tests |
 | cutoff on delivery day instead of D−1 | timeutil tests |
 | frontend: ignore delivery-basis day shift / carry range across bases / wrong sign | `app.test.tsx`, `format.test.ts` |
+| forecast block rounded **up** instead of down (a half-hour would take the next hour's forecast) | at least 12 tests across `test_forecast_alignment.py` and `test_api_hourly_forecasts.py` (the run was truncated at 12) |
+| persistence baseline ignores a late publication time | `test_an_actual_published_late_is_not_used_before_its_publication_time` |
 
 ## Defects the test layers found (and which layer found them)
 
@@ -72,6 +78,8 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 | nginx `add_header` in a `location` silently dropped security headers | header check on every route type |
 | `.env.example` inline comment made Compose set `ADMIN_TOKEN` to the comment text (enabling the endpoint) | cross-parser check → `test_env_example.py` |
 | Intervals pager 1 px wider than a 320 px phone on GitHub's runner (passed locally: the app sets no font family, so the CI machine's wider fallback font exposed it) | **GitHub Actions** (first CI run), then reproduced locally with DejaVu Sans; now covered by the "wide fallback font" overflow tests |
+| **WINDFOR is hourly**: the matcher joined on identical start times, so every `:30` half-hour would have had no forecast (50 % coverage on complete data) | **the first live `verify-upstream` / `ingest` run**; fixed by ADR-021, now covered by unit, API, ingestion and real-recording tests |
+| FUELHH `publishTime` is not always the period end (4 of 2,016 rows were stamped up to 145 min later), so a fixed lag alone could let a late value into the baseline | checking the real snapshot; fixed by ADR-022 |
 
 ## Not covered / not run — be honest about these
 
@@ -79,4 +87,5 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 * **GitHub Actions**: run 2 (`90c4fef`) failed one Playwright test (Intervals pager overflow at 320 px, see the defects table);
   run 3 (`b78b322`, the fix) passed all 5 jobs. All of this ran on synthetic data, never on Elexon data.
 * Cross-browser (only Chromium), screen-reader testing with real assistive tech, load testing, and real cold-start timing on Render.
-* The Playwright suite runs against the synthetic snapshot, so it proves behaviour and invariants, not real-data results.
+* The Playwright suite runs against the synthetic snapshot (hourly, like the real feed), so it proves behaviour and invariants, not real-data results. The real snapshot was additionally driven through the production build by hand (4 pages: 0 axe violations, no console errors); that run is not part of CI.
+* DST days are covered by unit tests only: January data contains no clock change.

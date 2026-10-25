@@ -54,7 +54,14 @@ function BriefBody({ b }: { b: DecisionBrief }) {
             {fs.first_publish_time && fs.last_publish_time && (
               <>
                 , drawn from {fs.distinct_publications} publication{fs.distinct_publications === 1 ? '' : 's'}{' '}
-                released between {fmtDateTime(fs.first_publish_time)} and {fmtDateTime(fs.last_publish_time)}
+                {fs.first_publish_time === fs.last_publish_time ? (
+                  <>released {fmtDateTime(fs.first_publish_time)}</>
+                ) : (
+                  <>
+                    released between {fmtDateTime(fs.first_publish_time)} and{' '}
+                    {fmtDateTime(fs.last_publish_time)}
+                  </>
+                )}
               </>
             )}
             .

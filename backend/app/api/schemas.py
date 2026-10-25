@@ -73,6 +73,15 @@ class AnalysisEcho(ApiModel):
     cutoff_timezone: str = "Europe/London"
     cutoff_rule: str
     forecast_basis: Literal["decision_time"] = "decision_time"
+    forecast_block_minutes: int = Field(
+        description="Span covered by one WINDFOR value: 60 for the hourly feed under 'hold', else 30."
+    )
+    forecast_alignment: Literal["hold", "exact"] = Field(
+        description="'hold' applies each forecast hour to both half-hours it covers; 'exact' only matches identical start times."
+    )
+    forecast_alignment_note: str | None = Field(
+        description="How forecasts were mapped onto half-hours; null when the grids already coincide."
+    )
     error_convention: Literal["forecast_minus_actual"] = "forecast_minus_actual"
     unit: str = "MW"
 
@@ -236,6 +245,9 @@ class MetadataResponse(ApiModel):
     default_basis: Basis
     default_cutoff: str
     cutoff_presets: list[CutoffPreset]
+    forecast_alignment: Literal["hold", "exact"] = Field(
+        description="How hourly forecasts are mapped onto half-hourly actuals (server setting)."
+    )
     thresholds: Thresholds
     delivery_coverage_from: date | None = None
     delivery_coverage_to: date | None = None
@@ -358,6 +370,11 @@ class VintagesResponse(ApiModel):
     local_label: str
     delivery_date: date
     settlement_period: int
+    forecast_for_time: datetime = Field(
+        description="Start of the WINDFOR block this half-hour's forecast refers to (equals start_time unless forecasts are hourly)."
+    )
+    forecast_block_minutes: int
+    forecast_alignment_note: str | None
     cutoff_local: str
     cutoff_time: datetime
     actual_mw: float | None

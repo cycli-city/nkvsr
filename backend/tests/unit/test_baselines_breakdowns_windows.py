@@ -62,6 +62,28 @@ class TestPersistenceBaseline:
         tampered.loc[tampered["start_utc"] == ts("2026-01-14T08:30:00Z"), "actual_mw"] = 9999.0
         assert persistence_at_cutoff(iv, tampered).equals(persistence_at_cutoff(iv, base_actuals))
 
+    def test_an_actual_published_late_is_not_used_before_its_publication_time(self) -> None:
+        iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)  # cutoff 14 Jan 09:20Z
+        actuals = history(date(2026, 1, 13), DAY, lambda s: float(s.hour * 100 + s.minute))
+        # Stamped at period end + 30 min as usual, so the 08:00 half-hour (800) is the latest usable...
+        actuals["actual_publish_utc"] = actuals["start_utc"] + pd.Timedelta(minutes=30)
+        assert (persistence_at_cutoff(iv, actuals) == 800.0).all()
+        # ...unless that record was in fact published only at 09:25 (after the cutoff): then 07:30 is.
+        late = actuals["start_utc"] == ts("2026-01-14T08:00:00Z")
+        actuals.loc[late, "actual_publish_utc"] = ts("2026-01-14T09:25:00Z")
+        assert (persistence_at_cutoff(iv, actuals) == 730.0).all()
+
+    def test_a_publication_stamp_never_makes_an_actual_available_earlier(self) -> None:
+        iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)
+        actuals = history(date(2026, 1, 13), DAY, lambda s: float(s.hour * 100 + s.minute))
+        # A stamp at the very start of the half-hour does not override the end-of-period + lag rule.
+        actuals["actual_publish_utc"] = actuals["start_utc"]
+        assert (persistence_at_cutoff(iv, actuals) == 800.0).all()
+        # Missing stamps (NaT) fall back to the lag rule rather than disqualifying the row.
+        actuals["actual_publish_utc"] = pd.NaT
+        actuals["actual_publish_utc"] = pd.to_datetime(actuals["actual_publish_utc"], utc=True)
+        assert (persistence_at_cutoff(iv, actuals) == 800.0).all()
+
     def test_future_actuals_cannot_change_the_baseline(self) -> None:
         iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)
         base_actuals = history(date(2026, 1, 13), DAY, lambda s: 1.0)

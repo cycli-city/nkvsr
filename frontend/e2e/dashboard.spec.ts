@@ -28,6 +28,14 @@ test.describe('Dashboard', () => {
     expect(errors).toEqual([])
   })
 
+  test('tells the reader that hourly forecasts were applied to half-hourly actuals', async ({ page }) => {
+    await openDashboard(page)
+    const note = page.getByTestId('alignment-note')
+    await expect(note).toContainText('Forecast resolution:')
+    await expect(note).toContainText('both half-hours it covers')
+    await expect(note).toContainText('interpolated')
+  })
+
   test('shows the cutoff rule and sign convention near the numbers', async ({ page }) => {
     await openDashboard(page)
     await expect(

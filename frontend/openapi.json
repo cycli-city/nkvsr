@@ -1294,6 +1294,32 @@
             "title": "Forecast Basis",
             "default": "decision_time"
           },
+          "forecast_block_minutes": {
+            "type": "integer",
+            "title": "Forecast Block Minutes",
+            "description": "Span covered by one WINDFOR value: 60 for the hourly feed under 'hold', else 30."
+          },
+          "forecast_alignment": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "exact"
+            ],
+            "title": "Forecast Alignment",
+            "description": "'hold' applies each forecast hour to both half-hours it covers; 'exact' only matches identical start times."
+          },
+          "forecast_alignment_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Alignment Note",
+            "description": "How forecasts were mapped onto half-hours; null when the grids already coincide."
+          },
           "error_convention": {
             "type": "string",
             "const": "forecast_minus_actual",
@@ -1318,6 +1344,9 @@
           "cutoff_timezone",
           "cutoff_rule",
           "forecast_basis",
+          "forecast_block_minutes",
+          "forecast_alignment",
+          "forecast_alignment_note",
           "error_convention",
           "unit"
         ],
@@ -2792,6 +2821,15 @@
             "type": "array",
             "title": "Cutoff Presets"
           },
+          "forecast_alignment": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "exact"
+            ],
+            "title": "Forecast Alignment",
+            "description": "How hourly forecasts are mapped onto half-hourly actuals (server setting)."
+          },
           "thresholds": {
             "$ref": "#/components/schemas/Thresholds"
           },
@@ -2875,6 +2913,7 @@
           "default_basis",
           "default_cutoff",
           "cutoff_presets",
+          "forecast_alignment",
           "thresholds",
           "delivery_coverage_from",
           "delivery_coverage_to",
@@ -3576,6 +3615,27 @@
             "type": "integer",
             "title": "Settlement Period"
           },
+          "forecast_for_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Forecast For Time",
+            "description": "Start of the WINDFOR block this half-hour's forecast refers to (equals start_time unless forecasts are hourly)."
+          },
+          "forecast_block_minutes": {
+            "type": "integer",
+            "title": "Forecast Block Minutes"
+          },
+          "forecast_alignment_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Alignment Note"
+          },
           "cutoff_local": {
             "type": "string",
             "title": "Cutoff Local"
@@ -3651,6 +3711,9 @@
           "local_label",
           "delivery_date",
           "settlement_period",
+          "forecast_for_time",
+          "forecast_block_minutes",
+          "forecast_alignment_note",
           "cutoff_local",
           "cutoff_time",
           "actual_mw",

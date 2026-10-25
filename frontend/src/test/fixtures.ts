@@ -92,6 +92,7 @@ export const metadata = (over: Partial<Metadata> = {}): Metadata => ({
   quality: {},
   warnings: [],
   sign_convention: 'error = forecast - actual; positive = over-forecast',
+  forecast_alignment: 'hold',
   unit: 'MW',
   ...over,
 })
@@ -108,6 +109,9 @@ export const analysis = (over: Partial<AnalysisEcho> = {}): AnalysisEcho => ({
   cutoff_rule:
     'latest WINDFOR forecast published at or before 09:20 Europe/London on the day before delivery',
   forecast_basis: 'decision_time',
+  forecast_block_minutes: 30,
+  forecast_alignment: 'hold',
+  forecast_alignment_note: null,
   error_convention: 'forecast_minus_actual',
   unit: 'MW',
   ...over,
@@ -316,6 +320,9 @@ export const vintages = (over: Partial<Vintages> = {}): Vintages => ({
   local_label: '2026-01-15 08:30',
   delivery_date: '2026-01-15',
   settlement_period: 18,
+  forecast_for_time: '2026-01-15T08:30:00Z',
+  forecast_block_minutes: 30,
+  forecast_alignment_note: null,
   cutoff_local: '09:20',
   cutoff_time: '2026-01-14T09:20:00Z',
   actual_mw: 4985,

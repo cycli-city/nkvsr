@@ -26,6 +26,31 @@ describe('Dashboard', () => {
     expect(await screen.findByText('Daily error trend')).toBeInTheDocument()
   })
 
+  it('states how hourly forecasts were applied to half-hourly actuals, only when that is the case', async () => {
+    const note =
+      'Each forecast hour is applied unchanged to both half-hours it covers (nothing is interpolated).'
+    mockApi({
+      '/api/summary': fx.summary({
+        analysis: fx.analysis({
+          forecast_block_minutes: 60,
+          forecast_alignment_note: note,
+        }),
+      }),
+    })
+    renderApp('/')
+    const el = await screen.findByTestId('alignment-note')
+    expect(el).toHaveTextContent('Forecast resolution:')
+    expect(el).toHaveTextContent(/applied unchanged to both half-hours/)
+  })
+
+  it('shows no resolution note when forecasts already match the half-hourly actuals', async () => {
+    mockApi()
+    renderApp('/')
+    await inSummary()
+    await screen.findByText('Data sufficient')
+    expect(screen.queryByTestId('alignment-note')).not.toBeInTheDocument()
+  })
+
   it('shows source, units and last successful refresh', async () => {
     mockApi()
     renderApp('/')
@@ -361,6 +386,30 @@ describe('Vintages page', () => {
     expect(screen.getByText('+322 MW')).toBeInTheDocument() // error at decision time
   })
 
+  it('says which forecast hour an off-hour half-hour is scored against', async () => {
+    mockApi({
+      '/api/forecast-vintages': fx.vintages({
+        forecast_for_time: '2026-01-15T08:00:00Z',
+        forecast_block_minutes: 60,
+        forecast_alignment_note: 'held',
+      }),
+    })
+    renderApp('/vintages?start=2026-01-15T08:30:00Z')
+    const note = await screen.findByTestId('held-forecast-note')
+    expect(note).toHaveTextContent('Hourly forecast applied to this half-hour')
+    expect(note).toHaveTextContent(
+      /08:30 half-hour is scored against the forecast for the hour starting 08:00/,
+    )
+    expect(note).toHaveTextContent('Nothing is interpolated')
+  })
+
+  it('shows no hourly note for a half-hour that has a forecast of its own', async () => {
+    mockApi()
+    renderApp('/vintages?start=2026-01-15T08:30:00Z')
+    await screen.findByText('Used at decision time', { selector: 'dt' })
+    expect(screen.queryByTestId('held-forecast-note')).not.toBeInTheDocument()
+  })
+
   it('explains when no vintage history exists instead of drawing an empty chart', async () => {
     mockApi({
       '/api/forecast-vintages': fx.vintages({
@@ -415,6 +464,46 @@ describe('Methodology page', () => {
     expect(screen.getByText(/Scope warning/)).toBeInTheDocument()
     expect(screen.getByText(/FUELHH: 2 of 100 rows dropped/)).toBeInTheDocument()
     expect(screen.getByText('Known limitations')).toBeInTheDocument()
+  })
+})
+
+describe('Methodology page: forecast resolution', () => {
+  const hourlyQuality = {
+    forecast_profile: {
+      start_resolution_minutes: 60,
+      distinct_publish_times: 272,
+      publish_cadence_minutes_median: 180,
+      lead_time_hours_median: 21.5,
+      lead_time_hours_max: 66.5,
+    },
+  }
+
+  it('explains the hold rule for an hourly forecast grid', async () => {
+    mockApi({ '/api/metadata': fx.metadata({ quality: hourlyQuality, forecast_alignment: 'hold' }) })
+    renderApp('/methodology')
+    const box = await screen.findByTestId('hourly-forecast-explainer')
+    expect(box).toHaveTextContent('60 minutes apart')
+    expect(box).toHaveTextContent(/applied unchanged to both half-hours/)
+    expect(box).toHaveTextContent(/never uses the next hour/)
+  })
+
+  it('explains that exact matching leaves the other half-hours missing', async () => {
+    mockApi({ '/api/metadata': fx.metadata({ quality: hourlyQuality, forecast_alignment: 'exact' }) })
+    renderApp('/methodology')
+    const box = await screen.findByTestId('hourly-forecast-explainer')
+    expect(box).toHaveTextContent(/exact matching/)
+    expect(box).toHaveTextContent(/reported as missing, never\s+filled/)
+  })
+
+  it('omits the explainer when the forecast grid is half-hourly', async () => {
+    mockApi({
+      '/api/metadata': fx.metadata({
+        quality: { forecast_profile: { start_resolution_minutes: 30 } },
+      }),
+    })
+    renderApp('/methodology')
+    await screen.findByRole('heading', { name: 'Methodology and data quality' })
+    expect(screen.queryByTestId('hourly-forecast-explainer')).not.toBeInTheDocument()
   })
 })
 

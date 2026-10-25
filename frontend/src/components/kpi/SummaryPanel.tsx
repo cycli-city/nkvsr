@@ -166,6 +166,12 @@ export function SummaryPanel() {
                     </>
                   )}
                 </span>
+                {s.analysis.forecast_alignment_note && (
+                  <p className="basis-full text-xs text-slate-600" data-testid="alignment-note">
+                    <strong className="font-medium text-slate-700">Forecast resolution:</strong>{' '}
+                    {s.analysis.forecast_alignment_note}
+                  </p>
+                )}
               </Card>
             </div>
           )
