@@ -28,19 +28,46 @@ def history(first: date, last: date, value_fn) -> pd.DataFrame:  # type: ignore[
 
 
 class TestPersistenceBaseline:
-    def test_uses_last_completed_interval_before_cutoff_and_nothing_later(self) -> None:
+    @pytest.mark.parametrize(
+        "lag_minutes,expected",
+        [
+            (0, 830.0),  # 08:30-09:00 has ended by 09:20
+            (
+                30,
+                800.0,
+            ),  # default: it is not *published* until 09:30, so 08:00-08:30 is the latest usable
+            (60, 730.0),
+        ],
+    )
+    def test_uses_last_actual_that_was_available_at_the_cutoff(
+        self, lag_minutes: int, expected: float
+    ) -> None:
         iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)  # cutoff = 14 Jan 09:20Z
         actuals = history(date(2026, 1, 13), DAY, lambda s: float(s.hour * 100 + s.minute))
-        # Last interval ending <= 09:20 starts 08:30 (ends 09:00); the 09:00 one ends 09:30 > cutoff.
-        base = persistence_at_cutoff(iv, actuals)
-        assert (base == 830.0).all()
+        base = persistence_at_cutoff(
+            iv, actuals, availability_lag=pd.Timedelta(minutes=lag_minutes)
+        )
+        assert (base == expected).all()
+
+    def test_default_lag_is_conservative(self) -> None:
+        iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)
+        actuals = history(date(2026, 1, 13), DAY, lambda s: float(s.hour * 100 + s.minute))
+        assert (persistence_at_cutoff(iv, actuals) == 800.0).all()
+
+    def test_an_actual_that_has_ended_but_is_not_yet_published_cannot_influence_it(self) -> None:
+        iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)
+        base_actuals = history(date(2026, 1, 13), DAY, lambda s: 1.0)
+        tampered = base_actuals.copy()
+        # 08:30-09:00 ended at 09:00 (before the 09:20 cutoff) but, with the 30 min lag, is unpublished.
+        tampered.loc[tampered["start_utc"] == ts("2026-01-14T08:30:00Z"), "actual_mw"] = 9999.0
+        assert persistence_at_cutoff(iv, tampered).equals(persistence_at_cutoff(iv, base_actuals))
 
     def test_future_actuals_cannot_change_the_baseline(self) -> None:
         iv = expected_intervals(DAY, DAY, DEFAULT_CUTOFF)
         base_actuals = history(date(2026, 1, 13), DAY, lambda s: 1.0)
         tampered = base_actuals.copy()
-        tampered.loc[tampered["start_utc"] >= ts("2026-01-14T09:00:00Z"), "actual_mw"] = 9999.0
-        # Intervals starting 09:00 or later end after the 09:20 cutoff, so tampering must not matter.
+        tampered.loc[tampered["start_utc"] >= ts("2026-01-14T08:30:00Z"), "actual_mw"] = 9999.0
+        # Anything from 08:30 on is either still running or unpublished at 09:20, so tampering must not matter.
         assert persistence_at_cutoff(iv, tampered).equals(persistence_at_cutoff(iv, base_actuals))
         assert (persistence_at_cutoff(iv, tampered) == 1.0).all()
 

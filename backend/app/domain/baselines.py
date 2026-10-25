@@ -19,15 +19,27 @@ from app.domain import timeutil as tu
 
 # A persistence value older than this at the cutoff is considered stale and not used.
 PERSISTENCE_MAX_STALENESS = pd.Timedelta(hours=6)
+# An actual is not knowable the instant its half-hour ends: FUELHH is published some time later. The default
+# is a conservative ASSUMPTION (configurable via ACTUAL_AVAILABILITY_LAG_MINUTES) pending live verification.
+DEFAULT_AVAILABILITY_LAG = pd.Timedelta(minutes=30)
 TRAILING_DAYS = 7
 TRAILING_MIN_DAYS = 5
 TRAILING_LAG_DAYS = 2  # delivery day D uses D-2 and earlier
 
 
-def persistence_at_cutoff(intervals: pd.DataFrame, actuals: pd.DataFrame) -> pd.Series:
-    """Last completed actual (interval end <= cutoff) per interval; NaN if none recent enough."""
+def persistence_at_cutoff(
+    intervals: pd.DataFrame,
+    actuals: pd.DataFrame,
+    *,
+    availability_lag: pd.Timedelta = DEFAULT_AVAILABILITY_LAG,
+) -> pd.Series:
+    """Last actual that was *available* at the cutoff, per interval; NaN if none recent enough.
+
+    An actual is available once its half-hour has ended **and** ``availability_lag`` has elapsed, i.e.
+    ``start + 30 min + lag <= cutoff``. Anything later is information the buyer did not yet have.
+    """
     act = actuals[["start_utc", "actual_mw"]].copy()
-    act["end_utc"] = tu.as_utc_ns(act["start_utc"]) + tu.HALF_HOUR
+    act["end_utc"] = tu.as_utc_ns(act["start_utc"]) + tu.HALF_HOUR + availability_lag
     act["end_utc"] = tu.as_utc_ns(act["end_utc"])
     act = act.dropna(subset=["actual_mw"]).sort_values("end_utc", kind="stable")
 
@@ -80,9 +92,16 @@ def trailing_mean_same_period(intervals: pd.DataFrame, actuals: pd.DataFrame) ->
     return pd.Series(values, index=intervals.index, dtype="float64")
 
 
-def add_baselines(matched: pd.DataFrame, actuals: pd.DataFrame) -> pd.DataFrame:
+def add_baselines(
+    matched: pd.DataFrame,
+    actuals: pd.DataFrame,
+    *,
+    availability_lag: pd.Timedelta = DEFAULT_AVAILABILITY_LAG,
+) -> pd.DataFrame:
     """Return ``matched`` with ``baseline_persistence_mw`` and ``baseline_trailing_mean_mw`` columns."""
     out = matched.copy()
-    out["baseline_persistence_mw"] = persistence_at_cutoff(out, actuals)
+    out["baseline_persistence_mw"] = persistence_at_cutoff(
+        out, actuals, availability_lag=availability_lag
+    )
     out["baseline_trailing_mean_mw"] = trailing_mean_same_period(out, actuals)
     return out

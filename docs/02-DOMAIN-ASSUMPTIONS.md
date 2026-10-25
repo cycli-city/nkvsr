@@ -63,12 +63,15 @@ day-ahead bid is used (leak-free default). It is configurable (`DECISION_CUTOFF_
 Evaluated only on the intervals where forecast, actual **and** the baseline are all available, and always
 reported with their own `n`:
 
-* **Persistence at cutoff** — the last completed half-hour actual with `end <= cutoff`, held flat across the
-  whole next day.
+* **Persistence at cutoff** — the last half-hour actual that was *available* at the cutoff, held flat across the
+  whole next day. An actual is available once its half-hour has ended **and** a publication lag has elapsed:
+  `start + 30 min + lag <= cutoff`. The lag is an **ASSUMPTION** (default 30 min, `ACTUAL_AVAILABILITY_LAG_MINUTES`)
+  until `verify-upstream` shows FUELHH's real publication delay; a value that has ended but is not yet published
+  cannot influence the baseline (tested).
 * **Trailing 7-day mean (same settlement period)** — mean of the same local settlement period over the
   7 *complete* local days D‑8 … D‑2 relative to the delivery day D (D‑1 is incomplete at the cutoff).
 
-No baseline may use an actual with `end > cutoff` (leakage). Tests enforce this.
+No baseline may use an actual that was not yet available at the cutoff (leakage). Tests enforce this.
 
 ## F. Data-quality policy
 

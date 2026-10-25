@@ -76,7 +76,8 @@ BASELINES: dict[BaselineKey, tuple[str, str, str]] = {
     "persistence": (
         "baseline_persistence_mw",
         "Persistence at cutoff",
-        "Last completed half-hour actual before the cutoff, held flat across the delivery day.",
+        "Last half-hour actual that was complete and published by the cutoff (assumed publication lag "
+        "applies), held flat across the delivery day.",
     ),
     "trailing_mean": (
         "baseline_trailing_mean_mw",
@@ -310,7 +311,11 @@ class AnalysisService:
             forecasts=self._forecasts_for_window(ds, ctx),
             as_of=ds.retrieved_at,
         )
-        frame = add_baselines(frame, ds.actuals)
+        frame = add_baselines(
+            frame,
+            ds.actuals,
+            availability_lag=pd.Timedelta(minutes=self._settings.actual_availability_lag_minutes),
+        )
         with self._lock:
             self._cache[ctx.key] = frame
             while len(self._cache) > CACHE_SIZE:

@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     coverage_sufficient: float = Field(default=0.98, ge=0, le=1)
     coverage_partial: float = Field(default=0.90, ge=0, le=1)
     stale_forecast_hours: float = Field(default=36.0, gt=0)
+    # Delay between a half-hour ending and its FUELHH actual being usable (assumption; verify live).
+    actual_availability_lag_minutes: int = Field(default=30, ge=0, le=720)
 
     # --- Elexon upstream ---------------------------------------------------------------------
     elexon_base_url: str = "https://data.elexon.co.uk/bmrs/api/v1"

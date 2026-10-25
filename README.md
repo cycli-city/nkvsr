@@ -183,8 +183,9 @@ Skill    = 1 − MAE_forecast / MAE_baseline    (on intervals where forecast, ac
 All headline metrics use **one eligible set** (both an actual and a decision-time forecast). Also reported: means, `n`,
 missing-forecast / missing-actual / missing-both counts, over/under split, signed and absolute quantiles, a histogram, daily
 / half-hour-slot / day-night breakdowns and the largest misses. MAPE is deliberately omitted (explodes near zero output).
-**Baselines** are information-valid at the cutoff: *persistence* (last completed actual, held flat) and *trailing 7-day mean*
-(same period over D−8…D−2). Tests assert no actual after the cutoff can change them.
+**Baselines** are information-valid at the cutoff: *persistence* (last actual that was complete **and published**, assuming a
+30-minute availability lag, held flat) and *trailing 7-day mean* (same period over D−8…D−2). Tests assert nothing unavailable
+at the cutoff can change them.
 
 ## 9. Date & time-zone assumptions
 
@@ -237,6 +238,7 @@ Everything is environment-driven; see [`.env.example`](.env.example) (placeholde
 | `DATA_DIR` | `./data` | snapshots in `$DATA_DIR/snapshots/current` |
 | `AUTO_INGEST_ON_START` | `false` | fetch from Elexon on first boot if no snapshot exists |
 | `ADMIN_TOKEN` | *(empty)* | ≥16 chars enables `POST /api/admin/refresh`; empty keeps it disabled |
+| `ACTUAL_AVAILABILITY_LAG_MINUTES` | `30` | assumed delay before a half-hour's actual is usable (baseline leakage guard) |
 | `ELEXON_*` | see file | base URL, timeout, retries, backoff, concurrency, chunk sizes |
 | `VITE_API_BASE_URL` (frontend build) | *(empty = same-origin)* | absolute API origin when UI and API are on different hosts |
 

@@ -261,8 +261,9 @@ Skill    = 1 - MAE_forecast / MAE_baseline   (same intervals; unavailable if MAE
         </ul>
         <p>
           <strong>Baselines</strong> use only information available at the cutoff: <em>persistence</em> (the
-          last completed half-hour actual, held flat across the next day) and <em>trailing mean</em> (the same
-          settlement period averaged over days D−8 … D−2; D−1 is incomplete at the cutoff).
+          last half-hour actual that was complete and published, assuming a short publication lag, held flat
+          across the next day) and <em>trailing mean</em> (the same settlement period averaged over days D−8 …
+          D−2; D−1 is incomplete at the cutoff).
         </p>
       </Block>
 
