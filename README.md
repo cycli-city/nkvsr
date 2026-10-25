@@ -99,7 +99,7 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 ├── .env.example                 every configuration variable, with safe defaults
 ├── render.yaml                  API deployment blueprint    (frontend/vercel.json for the UI)
 ├── SECURITY.md                  security model, what is and is not claimed, how to report a vulnerability
-├── LICENSE · CONTRIBUTING.md · CHANGELOG.md · .editorconfig
+├── LICENSE · CONTRIBUTING.md · CODE_OF_CONDUCT.md · CHANGELOG.md · .editorconfig
 ├── .github/                     workflows (ci · codeql · dependency-audit), dependabot.yml, PR and issue templates
 ├── data/snapshots/current/      the committed REAL January 2026 snapshot (Parquet + manifest with SHA-256)
 ├── docs/                        context · assumptions · architecture · API · live-data verification · deploy · testing · demo kit · real-data findings · requirements traceability
