@@ -12,11 +12,11 @@ _Update this file at the end of each work block. It is the first thing to read a
 | 4 Frontend | **Done**: dashboard, intervals, vintages, methodology. 75 Vitest + 43 Playwright/axe tests. |
 | 5 Docker/CI/README | **Done**: images built/run, Compose verified (on synthetic data), CI green on GitHub (run 3), README reflects real results. |
 | 6 QA + demo kit | **Done**: browser-verified on the real snapshot (0 axe violations on 4 pages, no console errors); `08-DEMO-GUIDE.md` filled with real numbers; `09-REAL-DATA-FINDINGS.md`. |
-| 7 Deploy + report | **Deployed 2026-10-25, public access NOT yet verified**: API on Render and UI on Vercel (see "Deployment" below). Remaining: make the UI publicly reachable (Vercel login protection), then the user's incognito checks, video and form. |
+| 7 Deploy + report | **Deployed and verified anonymously (2026-10-25)**: API on Render, UI on Vercel (see "Deployment" below). Remaining, user-side: literal incognito check of each URL, the video and the form. |
 
 ## Open items needing the user
 
-1. **Make the UI public**: the Vercel project has *Vercel Authentication* on for `*.vercel.app`, so an anonymous visitor gets a Vercel login page. Turn it off (Vercel → project `windscope-uk` → Settings → Deployment Protection → Vercel Authentication → Disabled). Then open every URL below in incognito. README §15 stays "not verified" until that is done.
+1. **Incognito check** of the two URLs below (the owner disabled Vercel Authentication, which had put a login page in front of the UI). Then the **video** and the **form**.
 2. **Video**: recording/upload is a user action; script, real numbers and checklist in `docs/08-DEMO-GUIDE.md`.
 3. **Submission form** and incognito check of every URL (user action).
 4. *(Optional, domain)* Ask Elexon/NESO whether WINDFOR covers the same scope as FUELHH WIND, and its unit; that would explain or rule out the +1.7 GW bias (`docs/09` §2).
@@ -30,8 +30,15 @@ Resolved earlier: the `git push` 403 (GitHub access reconnected) and the Elexon 
 | API (Docker, free plan, Frankfurt) | <https://windscope-api-5joc.onrender.com> · service `srv-dbf3jjks728c73e07dgg` · builds branch `claude/zen-bohr-nfa0ly` with auto-deploy | deploy **live**; its log reads `Loaded snapshot (elexon_live): 2016 actuals, 18664 forecast rows`; health checks return 200; env `APP_ENV=production`, `AUTO_INGEST_ON_START=true`, `CORS_ORIGINS` = the two UI aliases below; the admin refresh endpoint is **disabled** (no `ADMIN_TOKEN`) |
 | UI (Vite build uploaded with the Vercel CLI, no Git link) | <https://windscope-uk-sand.vercel.app> (alias <https://windscope-uk-divyansh-5834.vercel.app>) · project `windscope-uk` | deployment **READY**, production target, aliases assigned, `VITE_API_BASE_URL` present in the build environment, normal Vite build log |
 
-**Not verified**: this build environment cannot reach `*.vercel.app` or `*.onrender.com`, so nothing above was fetched anonymously from
-the public internet. The UI-to-API path (CORS, rendering with real data) has therefore not been exercised on the deployed hosts.
+**Verified after the owner disabled Vercel Authentication and allowed the two domains** (script run from this environment with a fresh
+Chromium profile, no cookies or storage; 28 checks, all pass): API `/api/health` (`data_loaded: true`), `/api/metadata` (`elexon_live`,
+not synthetic), `/api/docs`, `/api/summary` equals the committed snapshot (n 1,488, MAE 2,042, bias +1,748); CORS allows both UI aliases
+and refuses an arbitrary origin; `POST /api/admin/refresh` returns 404 (disabled); UI has no login wall, shows the real numbers, no
+synthetic banner, the hourly-forecast note and the licence link, charts draw, `/intervals`, `/vintages?start=…` and `/methodology` load
+on a hard refresh, switching the interpretation changes URL and numbers (to 2,145 MW) and a pasted URL restores the view, axe WCAG
+2.1 A/AA reports 0 violations, security headers present, no horizontal scroll at 390 px on all four pages, no console errors or
+failed requests. One check initially failed (numbers read before the slow free-tier API had answered); re-tested with a proper
+wait: the numbers updated in 656 ms. This is **not literally incognito**: the owner still checks each URL in an incognito window.
 Redeploying the UI: `cd frontend && npx vercel@65.2.0 deploy --prod --yes --scope <team> --build-env VITE_API_BASE_URL=<render url>`
 (needs a Vercel token in `VERCEL_TOKEN`); the API redeploys itself on every push to the branch.
 

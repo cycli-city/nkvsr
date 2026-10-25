@@ -142,3 +142,6 @@ Without dashboard access it was done through the two APIs (details and identifie
   List **both** production aliases (`<project>.vercel.app` and `<project>-<team>.vercel.app`) in `CORS_ORIGINS`.
 * Add `.vercel` to `.gitignore`; the CLI also writes a `.env.local` holding a short-lived token that must never be committed.
 * Revoke the API tokens used when finished.
+* Result (2026-10-25): API `https://windscope-api-5joc.onrender.com`, UI `https://windscope-uk-sand.vercel.app`. A new Vercel
+  project has *Vercel Authentication* on, which puts a login page in front of every `*.vercel.app` URL: disable it
+  (Settings → Deployment Protection) before testing anonymously.

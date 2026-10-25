@@ -5,10 +5,10 @@ the national wind forecast a buyer could actually see at the day-ahead decision 
 accurate that forecast turned out to be, using only Elexon's FUELHH (actuals) and WINDFOR (forecasts) datasets.
 
 > **Status at a glance** (details in [Verification status](#verification-status))
-> The analytics engine, API, UI, Docker, CI and tests are built and tested end to end, and the **real January 2026 Elexon
-> data has been fetched, verified against the live API and committed** (`data/snapshots/current`). **What is still not
-> done, because it needs your accounts:** the Vercel/Render deployment and the demo video. The repository ships **no
-> deployment URL** until those are opened and verified, and says so rather than faking one.
+> The analytics engine, API, UI, Docker, CI and tests are built and tested end to end, the **real January 2026 Elexon
+> data has been fetched, verified against the live API and committed** (`data/snapshots/current`), and the app is
+> **deployed and reachable without a login** (§15). **What is still not done:** the demo video and the owner's own incognito
+> check of each URL before submitting the form.
 
 ---
 
@@ -288,10 +288,13 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 
 | | URL | Status |
 |---|---|---|
-| Web UI (Vercel) | _deployed 2026-10-25; public access not yet verified_ | URL withheld until opened and checked in incognito (see `docs/STATUS.md`) |
-| API (Render, Docker) | _deployed 2026-10-25; public access not yet verified_ | its log shows the real snapshot loaded in production mode |
+| Web UI (Vercel) | <https://windscope-uk-sand.vercel.app> | ✅ opens without a login; real data, no synthetic banner |
+| API (Render, Docker) | <https://windscope-api-5joc.onrender.com> ([health](https://windscope-api-5joc.onrender.com/api/health) · [docs](https://windscope-api-5joc.onrender.com/api/docs)) | ✅ production mode, real snapshot loaded, CORS limited to the UI |
 
-**These links will be filled in only after the deployments have been opened and verified.** Step-by-step instructions
+Deployed on 2026-10-25 and checked **anonymously in a fresh browser profile with no stored state** (28 scripted checks, see
+`docs/STATUS.md`). That is close to, but not literally, an incognito window: the owner still has to open each URL in incognito
+before submitting. The API runs on Render's **free tier and sleeps when idle**, so the first request can take about a minute
+(the UI says so while it waits). The API is built from the `claude/zen-bohr-nfa0ly` branch. Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
 [`docs/06-DEPLOYMENT.md`](docs/06-DEPLOYMENT.md); configs: [`frontend/vercel.json`](frontend/vercel.json),
 [`render.yaml`](render.yaml), [`heroku.yml`](heroku.yml).
@@ -331,7 +334,8 @@ What has **actually been run and observed** (not just written):
 | **Live Elexon API: schema, parameters, history coverage** | ✅ **`make verify-upstream` PASS on 2026-10-25**; WINDFOR unit and scope remain assumptions |
 | **Real January 2026 snapshot** | ✅ **ingested and committed** (`data/snapshots/current`); results in [`docs/09`](docs/09-REAL-DATA-FINDINGS.md) |
 | GitHub Actions CI | ✅ run 5 (`3682682`, includes the real snapshot and hourly-forecast handling): all 5 jobs passed; the first run had caught a real 320 px layout bug (fixed). Details: `docs/STATUS.md` |
-| **Vercel / Render deployment, incognito verification, demo video** | ❌ **need your accounts: see `docs/06-DEPLOYMENT.md`, `docs/08-DEMO-GUIDE.md`** |
+| **Vercel / Render deployment** | ✅ deployed 2026-10-25; 28 anonymous checks in a fresh browser profile (API health/metadata/docs, CORS allow- and deny-lists, admin endpoint disabled, real numbers on the dashboard, deep links, URL-restores-view, axe WCAG 2.1 A/AA, security headers, no horizontal scroll at 390 px, no console errors) |
+| **Owner's incognito check of each URL, demo video, form** | ❌ **still to do: see `docs/06-DEPLOYMENT.md` §6, `docs/08-DEMO-GUIDE.md`** |
 
 The browser (Playwright) tests and CI's Compose smoke test run on a **synthetic** snapshot, which is stamped, banner-labelled and
 refused in production; those numbers are never results. The figures in this README come from the real snapshot.
