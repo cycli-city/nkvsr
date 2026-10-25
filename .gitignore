@@ -43,3 +43,6 @@ qa-artifacts/
 
 # Sandbox-only helper (never commit)
 .sandbox-ca.crt
+
+# Vercel CLI local project link (created by `vercel link`; not source)
+.vercel

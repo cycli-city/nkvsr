@@ -120,6 +120,7 @@ Only after every box is ticked, edit README §15 with the URLs and commit.
 
 | Symptom | Cause / fix |
 |---|---|
+| Visitors see a **Vercel login page** instead of the app | the project has *Vercel Authentication* enabled (the default on new projects); Vercel → project → Settings → Deployment Protection → set **Vercel Authentication** to Disabled, then re-test in incognito |
 | UI: "Can't reach the API", console CORS error | `CORS_ORIGINS` doesn't exactly match the UI origin (scheme + host, no trailing slash) |
 | UI: "Can't reach the API", no CORS error | wrong `VITE_API_BASE_URL` (needs redeploy), or API asleep / crashed (check Render logs) |
 | UI: "No Elexon data is loaded yet" | no snapshot in the image and ingestion failed/not run; read `/api/metadata` → `refresh.error` |
@@ -127,3 +128,17 @@ Only after every box is ticked, edit README §15 with the URLs and commit.
 | API log: "Checksum mismatch" | snapshot files edited or partially committed; re-run `make ingest` and commit both Parquet files and the manifest together |
 | Render build OOM / slow | free-tier builder; retry, or pre-build and push the image to a registry |
 | 502 from refresh | Elexon unreachable/changed; the previous snapshot is still being served; see `refresh.error` |
+
+## 9. How the first deployment was actually done (2026-10-25)
+
+Without dashboard access it was done through the two APIs (details and identifiers in `docs/STATUS.md`):
+
+* **Render**: `POST /v1/services` with `type=web_service`, `runtime=docker`, `dockerfilePath=./backend/Dockerfile`,
+  `dockerContext=.`, `plan=free`, the public repo URL and branch `claude/zen-bohr-nfa0ly`, `autoDeploy=yes`; then
+  `PUT /v1/services/<id>/env-vars/CORS_ORIGINS` and `POST /v1/services/<id>/deploys` once the UI URL was known.
+  The blueprint's generated `ADMIN_TOKEN` was deliberately left out, so the refresh endpoint stays disabled.
+* **Vercel**: `vercel link` then `vercel deploy --prod --build-env VITE_API_BASE_URL=<render url>` from `frontend/` (the
+  CLI uploads the folder; no GitHub login connection needed, though it prints a harmless failed attempt to link the repo).
+  List **both** production aliases (`<project>.vercel.app` and `<project>-<team>.vercel.app`) in `CORS_ORIGINS`.
+* Add `.vercel` to `.gitignore`; the CLI also writes a `.env.local` holding a short-lived token that must never be committed.
+* Revoke the API tokens used when finished.

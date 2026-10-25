@@ -288,8 +288,8 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 
 | | URL | Status |
 |---|---|---|
-| Web UI (Vercel) | _not deployed yet_ | needs your Vercel account |
-| API (Render, Docker) | _not deployed yet_ | needs your Render account |
+| Web UI (Vercel) | _deployed 2026-10-25; public access not yet verified_ | URL withheld until opened and checked in incognito (see `docs/STATUS.md`) |
+| API (Render, Docker) | _deployed 2026-10-25; public access not yet verified_ | its log shows the real snapshot loaded in production mode |
 
 **These links will be filled in only after the deployments have been opened and verified.** Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
