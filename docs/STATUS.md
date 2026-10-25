@@ -45,8 +45,9 @@ Resolved earlier: the `git push` 403 (GitHub access reconnected) and the Elexon 
 | YAML/JSON validation of CI, compose, render, heroku, vercel | valid |
 | GitHub Actions run 2 (`90c4fef`) | 4 of 5 jobs passed; the Playwright job failed 1 test (`/intervals` 1 px wider than a 320 px viewport on the runner's wider fallback font). Reproduced locally, fixed, test added |
 | GitHub Actions run 3 (`b78b322`) <https://github.com/cycli-city/nkvsr/actions/runs/40209280779> | **All 5 jobs passed** (Backend, Frontend, API contract, Docker + Compose smoke, Playwright + axe) |
+| GitHub Actions run 4 (`fed7444`, docs only) and **run 5 (`3682682`, hourly-forecast handling + real snapshot)** <https://github.com/cycli-city/nkvsr/actions/runs/40214087088> | both succeeded; run 5: **all 5 jobs passed**, including the Docker build with the real snapshot baked into the API image |
 
-Runs after run 3 are not recorded here until observed; check the Actions tab of the repository.
+Runs after run 5 touch only documentation and are not recorded here; check the Actions tab of the repository.
 
 **NOT verified:** WINDFOR unit and scope against FUELHH (assumed MW, scope unknown); which part of the hour an hourly value
 describes; DST days on real data (January is all GMT: handled and unit-tested only); Vercel/Render deployment; real cold-start

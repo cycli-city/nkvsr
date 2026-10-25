@@ -330,7 +330,7 @@ What has **actually been run and observed** (not just written):
 | Docker Compose stack: service discovery, health-gated start, browser → nginx → API | ✅ (run on synthetic data) |
 | **Live Elexon API: schema, parameters, history coverage** | ✅ **`make verify-upstream` PASS on 2026-10-25**; WINDFOR unit and scope remain assumptions |
 | **Real January 2026 snapshot** | ✅ **ingested and committed** (`data/snapshots/current`); results in [`docs/09`](docs/09-REAL-DATA-FINDINGS.md) |
-| GitHub Actions CI | ✅ run 3 (`b78b322`): all 5 jobs passed; a first run had caught a real 320 px layout bug (fixed). Later runs: `docs/STATUS.md` |
+| GitHub Actions CI | ✅ run 5 (`3682682`, includes the real snapshot and hourly-forecast handling): all 5 jobs passed; the first run had caught a real 320 px layout bug (fixed). Details: `docs/STATUS.md` |
 | **Vercel / Render deployment, incognito verification, demo video** | ❌ **need your accounts: see `docs/06-DEPLOYMENT.md`, `docs/08-DEMO-GUIDE.md`** |
 
 The browser (Playwright) tests and CI's Compose smoke test run on a **synthetic** snapshot, which is stamped, banner-labelled and
