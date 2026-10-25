@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CSP_SAME_ORIGIN, CSP_VERCEL, PERMISSIONS_POLICY, buildCsp } from '../csp'
+import { API_ORIGIN, CSP_SAME_ORIGIN, CSP_VERCEL, PERMISSIONS_POLICY, buildCsp } from '../csp'
 
 const root = resolve(__dirname, '..')
 const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8')) as {
@@ -47,7 +47,8 @@ describe('security headers stay in step across every place the UI is served', ()
 
   it('only the cross-host deployment may call another origin, and only the API host', () => {
     expect(parse(CSP_SAME_ORIGIN)['connect-src']).toEqual(["'self'"])
-    expect(parse(CSP_VERCEL)['connect-src']).toEqual(["'self'", 'https://*.onrender.com'].sort())
+    expect(parse(CSP_VERCEL)['connect-src']).toEqual(["'self'", API_ORIGIN].sort())
+    expect(API_ORIGIN).toMatch(/^https:\/\/[a-z0-9-]+\.onrender\.com$/) // one exact https origin, never a wildcard
     expect(CSP_VERCEL).toContain('upgrade-insecure-requests')
     expect(CSP_SAME_ORIGIN).not.toContain('upgrade-insecure-requests') // would break plain-http localhost
   })

@@ -34,8 +34,14 @@ export const PERMISSIONS_POLICY = 'camera=(), microphone=(), geolocation=(), pay
 
 /** Same-origin deployments (nginx container, local preview): the API is reached through /api. */
 export const CSP_SAME_ORIGIN = buildCsp({ connect: ["'self'"] })
+/**
+ * The one cross-origin host the Vercel build may call: the deployed API. Deliberately the exact origin, not a wildcard,
+ * so even injected script could not send data to another Render-hosted app. If the API is deployed under another
+ * name, change it here and in `vercel.json` (the unit test fails until both agree; docs/06-DEPLOYMENT.md, step 3).
+ */
+export const API_ORIGIN = 'https://windscope-api-5joc.onrender.com'
 /** Vercel: the API lives on another host (Render). */
 export const CSP_VERCEL = buildCsp({
-  connect: ["'self'", 'https://*.onrender.com'],
+  connect: ["'self'", API_ORIGIN],
   upgradeInsecureRequests: true,
 })
