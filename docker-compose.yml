@@ -9,6 +9,15 @@
 #
 # Configuration comes from ./.env (see .env.example); every value has a safe default.
 
+# Least privilege for the long-running services: read-only root filesystem (writable scratch space is an explicit
+# tmpfs), no Linux capabilities, and no way to gain privileges. The one-shot `ingest` / `verify` tools below write to
+# bind mounts, so they do not use this.
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+
 x-backend-env: &backend-env
   APP_ENV: ${APP_ENV:-production}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -25,11 +34,14 @@ x-backend-env: &backend-env
 
 services:
   backend:
+    <<: *hardened
     build:
       context: .
       dockerfile: backend/Dockerfile
     image: windscope-api:local
     environment: *backend-env
+    tmpfs:
+      - /tmp
     # No bind mount on purpose: the vetted snapshot (data/snapshots/current) is baked into the image, and the
     # container runs as a non-root user. Refresh data with `make ingest`, then `docker compose up --build`.
     ports:
@@ -43,6 +55,11 @@ services:
       start_period: 15s
 
   frontend:
+    <<: *hardened
+    # nginx renders its config from a template at start-up and keeps temp files under /tmp: both are tmpfs.
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
     build:
       context: ./frontend
       args:
