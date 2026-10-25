@@ -47,19 +47,19 @@ and never feeds a metric.
 
 ```mermaid
 flowchart LR
-  subgraph Elexon["Elexon Insights (BMRS) API: read only"]
+  subgraph Elexon["Elexon API (read only)"]
     FH["/datasets/FUELHH/stream (WIND)"]
     WF["/datasets/WINDFOR/stream"]
   end
   subgraph Backend["FastAPI backend (Python 3.12)"]
-    CL["elexon.client\nhttpx · timeouts · retries · chunking"]
-    NZ["normalize + contract\nvalidate · dedupe · quality report"]
-    ST[("Snapshot\nParquet + manifest + SHA-256")]
-    DOM["domain (pure)\ntime · vintage · matching\nmetrics · baselines"]
-    API["services + routers\nPydantic · OpenAPI"]
+    CL["elexon.client<br/>httpx · timeouts · retries · chunking"]
+    NZ["normalize + contract<br/>validate · dedupe · quality report"]
+    ST[("Snapshot<br/>Parquet + manifest + SHA-256")]
+    DOM["domain (pure)<br/>time · vintage · matching<br/>metrics · baselines"]
+    API["services + routers<br/>Pydantic · OpenAPI"]
   end
   subgraph Web["React + TypeScript (Vite)"]
-    UI["Dashboard · Intervals · Vintages · Methodology\nTanStack Query · generated API types"]
+    UI["Dashboard · Intervals · Vintages · Methodology<br/>TanStack Query · generated API types"]
   end
   FH --> CL
   WF --> CL

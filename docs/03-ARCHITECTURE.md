@@ -10,16 +10,16 @@ flowchart LR
   end
 
   subgraph Backend["FastAPI backend (Python)"]
-    CL["elexon.client\nhttpx · timeouts · retries · chunking"]
-    NZ["elexon.normalize + contract\nvalidate · dedupe · quality report"]
-    ST[("Snapshot store\nParquet + manifest.json\n(bounded, in-memory view)")]
-    DOM["domain\ntimeutil · vintage · matching\nmetrics · baselines · breakdowns"]
+    CL["elexon.client<br/>httpx · timeouts · retries · chunking"]
+    NZ["elexon.normalize + contract<br/>validate · dedupe · quality report"]
+    ST[("Snapshot store<br/>Parquet + manifest.json<br/>(bounded, in-memory view)")]
+    DOM["domain<br/>timeutil · vintage · matching<br/>metrics · baselines · breakdowns"]
     SV["services.analysis"]
-    API["api routers + Pydantic schemas\n/api/* · OpenAPI"]
+    API["api routers + Pydantic schemas<br/>/api/* · OpenAPI"]
   end
 
   subgraph Frontend["React + TS + Tailwind (Vite)"]
-    QC["typed API client\n(openapi-typescript) + TanStack Query"]
+    QC["typed API client<br/>(openapi-typescript) + TanStack Query"]
     UI["Dashboard · Intervals · Vintages · Methodology"]
   end
 
