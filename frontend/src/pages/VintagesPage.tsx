@@ -151,9 +151,9 @@ function Detail({ v }: { v: Vintages }) {
           <ChartFrame
             title="How the forecast for this half-hour changed as publication time advanced"
             legend={[
-              { label: 'Used at decision time', color: '#0d9488' },
-              { label: 'Eligible, superseded', color: '#0b1f3f' },
-              { label: 'Published after the cutoff', color: '#94a3b8' },
+              { label: 'Used at decision time', color: '#0d9488', kind: 'dot' },
+              { label: 'Eligible, superseded', color: '#0b1f3f', kind: 'dot' },
+              { label: 'Published after the cutoff', color: '#94a3b8', kind: 'ring' },
               { label: 'Decision cutoff', color: '#be123c', kind: 'dash' },
             ]}
             summary={`Forecast for ${v.local_label} across ${v.n_vintages} publications; ${v.n_eligible} were published before the ${v.cutoff_local} cutoff. The forecast used was ${fmtMW(sel?.forecast_mw)}.`}

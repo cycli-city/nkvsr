@@ -2,6 +2,20 @@ import type { ReactNode } from 'react'
 import type { LegendItem } from './chartTheme'
 
 function Swatch({ color, kind = 'line' }: { color: string; kind?: LegendItem['kind'] }) {
+  if (kind === 'dot' || kind === 'ring') {
+    return (
+      <svg width="14" height="14" aria-hidden="true">
+        <circle
+          cx="7"
+          cy="7"
+          r={kind === 'dot' ? 4.5 : 4}
+          fill={kind === 'dot' ? color : '#fff'}
+          stroke={color}
+          strokeWidth={kind === 'ring' ? 1.75 : 0}
+        />
+      </svg>
+    )
+  }
   if (kind === 'box')
     return <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
   return (

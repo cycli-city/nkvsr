@@ -34,8 +34,8 @@ export function timeTick(spanDays: number): (ms: number) => string {
 export interface LegendItem {
   label: string
   color: string
-  /** `line` (solid), `dash` (dashed line), `box` (bar swatch) */
-  kind?: 'line' | 'dash' | 'box'
+  /** `line` (solid), `dash` (dashed line), `box` (bar swatch), `dot` (filled marker), `ring` (hollow marker) */
+  kind?: 'line' | 'dash' | 'box' | 'dot' | 'ring'
 }
 
 const TICK_STEPS = [100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000]

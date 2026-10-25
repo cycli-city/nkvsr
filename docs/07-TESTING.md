@@ -6,7 +6,7 @@ Only things that were **actually run** are claimed. Counts are as of this commit
 
 | Layer | Tool | Count (at writing) | What it protects |
 |---|---|---|---|
-| Backend domain & ingestion unit tests | pytest | 176 | time/DST maths, cutoff rule, vintage selection, matching, metric formulas, baselines (leakage), normalisation, retry/backoff, snapshot integrity, settings |
+| Backend domain & ingestion unit tests | pytest | 180 | time/DST maths, cutoff rule, vintage selection, matching, metric formulas, baselines (leakage), normalisation, retry/backoff, snapshot integrity, settings |
 | Backend API + integration | pytest + FastAPI TestClient | 72 (62 API + 10 ingestion e2e) | closed-form metrics through the API, validation & error envelope, CORS, empty/corrupt/synthetic-in-production states, admin guard, **mocked-Elexon → snapshot → API end-to-end**, failure keeps previous snapshot |
 | Frontend logic & integration | Vitest + Testing Library | 68 | UK-time formatting incl. BST/DST, URL state, API client + error mapping, whole-app flows against a typed mock API, chart-index helper |
 | End-to-end + accessibility | Playwright (Chromium) + axe-core | 39 | real browser vs real API + production build: drill-downs, interpretations, filters/sort/CSV, vintage invariants, API-down/slow/error/no-data, no horizontal overflow at 320–1280 px, keyboard use, WCAG 2.1 A/AA |

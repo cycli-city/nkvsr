@@ -297,7 +297,7 @@ What has **actually been run and observed** (not just written):
 
 | Check | Result |
 |---|---|
-| Backend: `pytest` (unit, API, mocked-Elexon end-to-end ingestion) | ✅ passing (248 tests) |
+| Backend: `pytest` (unit, API, mocked-Elexon end-to-end ingestion) | ✅ passing (252 tests) |
 | Backend: `ruff`, `ruff format --check`, `mypy --strict` | ✅ clean |
 | Backend mutation checks (cutoff `<=`, `backward`, error sign, baseline lag) | ✅ each caught by tests |
 | Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 68 passing |

@@ -8,7 +8,7 @@ _Update this file at the end of each work block. It is the first thing to read a
 |---|---|
 | 1 Data/domain validation | **Partially blocked**: Elexon hosts denied by the sandbox egress policy. Domain assumptions written; `verify-upstream` tool built and unit-tested against a mock transport, **never run live**. |
 | 2 Plan/architecture/docs | Done (docs 00-08, DECISIONS) |
-| 3 Backend | **Done**: engine, ingestion, API, CLI. 248 tests, ruff + mypy strict clean. |
+| 3 Backend | **Done**: engine, ingestion, API, CLI. 252 tests, ruff + mypy strict clean. |
 | 4 Frontend | **Done**: dashboard, intervals, vintages, methodology. 68 Vitest + 39 Playwright/axe tests. |
 | 5 Docker/CI/README | **Done** except real CI execution: images built, run, and Compose stack verified (on synthetic data); README complete. |
 | 6 QA + demo kit | QA largely done (browser-verified); `docs/08-DEMO-GUIDE.md` written. Final full re-run + delivery report pending. |
@@ -31,7 +31,7 @@ _Update this file at the end of each work block. It is the first thing to read a
 
 | Check | Result |
 |---|---|
-| `pytest backend/tests` | 248 passed (176 unit, 62 API, 10 mocked-Elexon ingestion e2e) |
+| `pytest backend/tests` | 252 passed (180 unit, 62 API, 10 mocked-Elexon ingestion e2e) |
 | `ruff check`, `ruff format --check`, `mypy app` (strict) | clean |
 | Backend + frontend mutation checks | each deliberate bug caught (see `docs/07-TESTING.md`) |
 | `tsc --noEmit` (strict), `eslint`, `prettier --check` | clean |
