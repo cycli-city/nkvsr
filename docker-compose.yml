@@ -1,0 +1,101 @@
+# WindScope UK - local stack.
+#
+#   docker compose up --build              API + web UI on http://localhost:8080  (data: ./data/snapshots/current)
+#   export HOST_UID=$(id -u) HOST_GID=$(id -g)   # so files written to ./data belong to you
+#   docker compose --profile tools run --rm ingest          fetch real data from Elexon into ./data (needs internet)
+#   docker compose --profile tools run --rm verify          probe the live Elexon API and record what it returns
+#   docker compose -f docker-compose.yml -f docker-compose.synthetic.yml up --build
+#                                          offline UI demo on clearly-labelled SYNTHETIC data (never Elexon data)
+#
+# Configuration comes from ./.env (see .env.example); every value has a safe default.
+
+# Least privilege for the long-running services: read-only root filesystem (writable scratch space is an explicit
+# tmpfs), no Linux capabilities, and no way to gain privileges. The one-shot `ingest` / `verify` tools below write to
+# bind mounts, so they do not use this.
+x-hardened: &hardened
+  read_only: true
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+
+x-backend-env: &backend-env
+  APP_ENV: ${APP_ENV:-production}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATA_DIR: /app/data
+  ANALYSIS_MONTH: ${ANALYSIS_MONTH:-2026-01}
+  DECISION_CUTOFF_LOCAL: ${DECISION_CUTOFF_LOCAL:-09:20}
+  DEFAULT_BASIS: ${DEFAULT_BASIS:-decision_date}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080,http://localhost:5173}
+  ELEXON_BASE_URL: ${ELEXON_BASE_URL:-https://data.elexon.co.uk/bmrs/api/v1}
+  ELEXON_TIMEOUT_SECONDS: ${ELEXON_TIMEOUT_SECONDS:-60}
+  ELEXON_MAX_RETRIES: ${ELEXON_MAX_RETRIES:-4}
+  AUTO_INGEST_ON_START: ${AUTO_INGEST_ON_START:-false}
+  ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+
+services:
+  backend:
+    <<: *hardened
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: windscope-api:local
+    environment: *backend-env
+    tmpfs:
+      - /tmp
+    # No bind mount on purpose: the vetted snapshot (data/snapshots/current) is baked into the image, and the
+    # container runs as a non-root user. Refresh data with `make ingest`, then `docker compose up --build`.
+    ports:
+      - "${API_PORT:-8000}:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
+
+  frontend:
+    <<: *hardened
+    # nginx renders its config from a template at start-up and keeps temp files under /tmp: both are tmpfs.
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: "" # same-origin: nginx proxies /api/* to the backend
+    image: windscope-web:local
+    environment:
+      API_UPSTREAM: http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  # --- one-shot tools (profile: tools) -------------------------------------------------------------
+  ingest:
+    profiles: ["tools"]
+    image: windscope-api:local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *backend-env
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ./data:/app/data
+    command: ["python", "-m", "app.cli", "ingest"]
+
+  verify:
+    profiles: ["tools"]
+    image: windscope-api:local
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment: *backend-env
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ./docs/generated:/out/docs
+      - ./backend/tests/fixtures/real:/out/fixtures
+    command: ["python", "-m", "app.cli", "verify-upstream", "--docs-dir", "/out/docs", "--fixtures-dir", "/out/fixtures"]

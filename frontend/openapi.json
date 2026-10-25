@@ -1,0 +1,4014 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WindScope UK API",
+    "description": "\nDay-ahead **wind forecast analytics** for GB power procurement (Elexon FUELHH / WINDFOR, national WIND only).\n\n* Every KPI uses the forecast **available at the day-ahead decision cutoff** - never later revisions.\n* Signed error is `forecast - actual` (positive = over-forecast).\n* Metrics that cannot be defined are `null` (\"unavailable\"), never zero.\n* Wind forecast error is **not** the utility's net procurement requirement.\n",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Liveness probe",
+        "description": "Always 200 while the process is up; `data_loaded` says whether a snapshot is being served.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metadata": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Provenance, windows and assumptions",
+        "description": "Everything the UI needs to describe its data honestly: source, retrieval time, refresh outcome,\npermitted date windows, cutoff presets, data-quality report and thresholds. Works with no dataset loaded.",
+        "operationId": "metadata_api_metadata_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/refresh": {
+      "post": {
+        "tags": [
+          "system",
+          "admin"
+        ],
+        "summary": "Re-ingest from Elexon (disabled unless ADMIN_TOKEN is set)",
+        "description": "Runs a full ingestion. On failure the previous snapshot keeps being served and the failure is\nrecorded in `/api/metadata`.",
+        "operationId": "refresh_api_admin_refresh_post",
+        "parameters": [
+          {
+            "name": "x-admin-token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/summary": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Executive KPIs",
+        "description": "Headline accuracy metrics, coverage, data-sufficiency status and baseline comparison.\n\nAll KPIs use the forecast that was **available at the decision cutoff** (latest publication with\n`publishTime <= cutoff`). Later revisions appear only under `hindsight_latest`, for context.",
+        "operationId": "summary_api_summary_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/timeseries": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Forecast vs actual",
+        "description": "One point per expected half-hourly delivery interval (gaps are returned as nulls, never filled).",
+        "operationId": "timeseries_api_timeseries_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeSeriesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accuracy": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Accuracy breakdowns",
+        "description": "Daily trend, time-of-day, day/night, error distribution and the largest errors.",
+        "operationId": "accuracy_api_accuracy_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccuracyResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intervals": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Delivery interval explorer",
+        "description": "Paginated, sortable, filterable table of the observations behind every KPI.",
+        "operationId": "intervals_api_intervals_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "start_time",
+                "forecast",
+                "actual",
+                "error",
+                "abs_error",
+                "publish_time",
+                "forecast_age"
+              ],
+              "type": "string",
+              "default": "start_time",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "sort_dir",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Sort Dir"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "matched",
+                "missing_any",
+                "missing_forecast",
+                "missing_actual",
+                "missing_both"
+              ],
+              "type": "string",
+              "description": "Filter by match status.",
+              "default": "all",
+              "title": "Status"
+            },
+            "description": "Filter by match status."
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "over",
+                    "under"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only over- or under-forecasts.",
+              "title": "Direction"
+            },
+            "description": "Only over- or under-forecasts."
+          },
+          {
+            "name": "min_abs_error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Minimum |error| in MW.",
+              "title": "Min Abs Error"
+            },
+            "description": "Minimum |error| in MW."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Free-text search over local date/time/weekday/status.",
+              "title": "Q"
+            },
+            "description": "Free-text search over local date/time/weekday/status."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntervalsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/intervals/export": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "CSV export",
+        "description": "The same filtered table as `/intervals`, unpaginated, as CSV (UTC and local timestamps).",
+        "operationId": "intervals_export_api_intervals_export_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "start_time",
+                "forecast",
+                "actual",
+                "error",
+                "abs_error",
+                "publish_time",
+                "forecast_age"
+              ],
+              "type": "string",
+              "default": "start_time",
+              "title": "Sort By"
+            }
+          },
+          {
+            "name": "sort_dir",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "type": "string",
+              "default": "asc",
+              "title": "Sort Dir"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "matched",
+                "missing_any",
+                "missing_forecast",
+                "missing_actual",
+                "missing_both"
+              ],
+              "type": "string",
+              "description": "Filter by match status.",
+              "default": "all",
+              "title": "Status"
+            },
+            "description": "Filter by match status."
+          },
+          {
+            "name": "direction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "over",
+                    "under"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only over- or under-forecasts.",
+              "title": "Direction"
+            },
+            "description": "Only over- or under-forecasts."
+          },
+          {
+            "name": "min_abs_error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Minimum |error| in MW.",
+              "title": "Min Abs Error"
+            },
+            "description": "Minimum |error| in MW."
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Free-text search over local date/time/weekday/status.",
+              "title": "Q"
+            },
+            "description": "Free-text search over local date/time/weekday/status."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/csv": {}
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/forecast-vintages": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Forecast revisions for one delivery interval",
+        "description": "Every stored WINDFOR publication for the interval, with the one eligible at the cutoff marked.",
+        "operationId": "forecast_vintages_api_forecast_vintages_get",
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Delivery interval start with timezone, e.g. 2026-01-15T08:30:00Z.",
+              "title": "Start"
+            },
+            "description": "Delivery interval start with timezone, e.g. 2026-01-15T08:30:00Z."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VintagesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/cutoff-sensitivity": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "How much does the decision time matter?",
+        "description": "Accuracy if the decision had been taken just after each regular WINDFOR publication run (selected cutoff marked).",
+        "operationId": "cutoff_sensitivity_api_cutoff_sensitivity_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CutoffSensitivityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/decision-brief": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "One decision, one delivery day",
+        "description": "The forecast set a buyer could see at the cutoff for the *next* delivery day, plus hindsight vs actuals.",
+        "operationId": "decision_brief_api_decision_brief_get",
+        "parameters": [
+          {
+            "name": "decision_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Local date on which the day-ahead decision is made.",
+              "title": "Decision Date"
+            },
+            "description": "Local date on which the day-ahead decision is made."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionBriefResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccuracyResponse": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisEcho"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageOut"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricsOut"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DailyAccuracy"
+            },
+            "type": "array",
+            "title": "Daily"
+          },
+          "by_slot": {
+            "items": {
+              "$ref": "#/components/schemas/SlotAccuracy"
+            },
+            "type": "array",
+            "title": "By Slot"
+          },
+          "by_daypart": {
+            "items": {
+              "$ref": "#/components/schemas/DaypartAccuracy"
+            },
+            "type": "array",
+            "title": "By Daypart"
+          },
+          "histogram": {
+            "$ref": "#/components/schemas/HistogramOut"
+          },
+          "error_distribution": {
+            "$ref": "#/components/schemas/ErrorDistributionOut"
+          },
+          "largest_errors": {
+            "items": {
+              "$ref": "#/components/schemas/IntervalRow"
+            },
+            "type": "array",
+            "title": "Largest Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "provenance",
+          "coverage",
+          "metrics",
+          "daily",
+          "by_slot",
+          "by_daypart",
+          "histogram",
+          "error_distribution",
+          "largest_errors"
+        ],
+        "title": "AccuracyResponse"
+      },
+      "AnalysisEcho": {
+        "properties": {
+          "basis": {
+            "$ref": "#/components/schemas/Basis"
+          },
+          "decision_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Decision From"
+          },
+          "decision_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Decision To"
+          },
+          "delivery_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery From"
+          },
+          "delivery_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery To"
+          },
+          "n_delivery_days": {
+            "type": "integer",
+            "title": "N Delivery Days"
+          },
+          "cutoff_local": {
+            "type": "string",
+            "title": "Cutoff Local",
+            "description": "Decision cutoff, 24h HH:MM, Europe/London, on the day before delivery."
+          },
+          "cutoff_timezone": {
+            "type": "string",
+            "title": "Cutoff Timezone",
+            "default": "Europe/London"
+          },
+          "cutoff_rule": {
+            "type": "string",
+            "title": "Cutoff Rule"
+          },
+          "forecast_basis": {
+            "type": "string",
+            "const": "decision_time",
+            "title": "Forecast Basis",
+            "default": "decision_time"
+          },
+          "forecast_block_minutes": {
+            "type": "integer",
+            "title": "Forecast Block Minutes",
+            "description": "Span covered by one WINDFOR value: 60 for the hourly feed under 'hold', else 30."
+          },
+          "forecast_alignment": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "exact"
+            ],
+            "title": "Forecast Alignment",
+            "description": "'hold' applies each forecast hour to both half-hours it covers; 'exact' only matches identical start times."
+          },
+          "forecast_alignment_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Alignment Note",
+            "description": "How forecasts were mapped onto half-hours; null when the grids already coincide."
+          },
+          "error_convention": {
+            "type": "string",
+            "const": "forecast_minus_actual",
+            "title": "Error Convention",
+            "default": "forecast_minus_actual"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "default": "MW"
+          }
+        },
+        "type": "object",
+        "required": [
+          "basis",
+          "decision_from",
+          "decision_to",
+          "delivery_from",
+          "delivery_to",
+          "n_delivery_days",
+          "cutoff_local",
+          "cutoff_timezone",
+          "cutoff_rule",
+          "forecast_basis",
+          "forecast_block_minutes",
+          "forecast_alignment",
+          "forecast_alignment_note",
+          "error_convention",
+          "unit"
+        ],
+        "title": "AnalysisEcho",
+        "description": "The exact interpretation a response was computed under (never mixed across bases)."
+      },
+      "BaselineOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "persistence",
+              "trailing_mean"
+            ],
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N",
+            "description": "Intervals where forecast, actual and this baseline are all available."
+          },
+          "mae_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Forecast Mw"
+          },
+          "mae_baseline_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Baseline Mw"
+          },
+          "skill": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill",
+            "description": "1 - MAE_forecast / MAE_baseline. Positive = forecast is better."
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "description",
+          "n",
+          "mae_forecast_mw",
+          "mae_baseline_mw",
+          "skill"
+        ],
+        "title": "BaselineOut"
+      },
+      "Basis": {
+        "type": "string",
+        "enum": [
+          "decision_date",
+          "delivery_date"
+        ],
+        "title": "Basis"
+      },
+      "BasisInfo": {
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Basis"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "date_type": {
+            "type": "string",
+            "enum": [
+              "decision",
+              "delivery"
+            ],
+            "title": "Date Type"
+          },
+          "min_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Min Date"
+          },
+          "max_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Max Date"
+          },
+          "default_from": {
+            "type": "string",
+            "format": "date",
+            "title": "Default From"
+          },
+          "default_to": {
+            "type": "string",
+            "format": "date",
+            "title": "Default To"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "description",
+          "date_type",
+          "min_date",
+          "max_date",
+          "default_from",
+          "default_to"
+        ],
+        "title": "BasisInfo"
+      },
+      "BriefHindsight": {
+        "properties": {
+          "n_matched": {
+            "type": "integer",
+            "title": "N Matched"
+          },
+          "mean_actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual Mw"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "latest_mean_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Mean Mw",
+            "description": "Mean of the latest-published forecast (hindsight)."
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_matched",
+          "mean_actual_mw",
+          "mae_mw",
+          "bias_mw",
+          "latest_mean_mw",
+          "note"
+        ],
+        "title": "BriefHindsight"
+      },
+      "BriefPoint": {
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "slot": {
+            "type": "string",
+            "title": "Slot"
+          },
+          "forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Mw"
+          },
+          "forecast_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Publish Time"
+          },
+          "actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Mw"
+          },
+          "error_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Mw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_time",
+          "slot",
+          "forecast_mw",
+          "forecast_publish_time",
+          "actual_mw",
+          "error_mw"
+        ],
+        "title": "BriefPoint"
+      },
+      "CoverageOut": {
+        "properties": {
+          "expected": {
+            "type": "integer",
+            "title": "Expected"
+          },
+          "matched": {
+            "type": "integer",
+            "title": "Matched"
+          },
+          "missing_forecast": {
+            "type": "integer",
+            "title": "Missing Forecast"
+          },
+          "missing_actual": {
+            "type": "integer",
+            "title": "Missing Actual"
+          },
+          "missing_both": {
+            "type": "integer",
+            "title": "Missing Both"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected",
+          "matched",
+          "missing_forecast",
+          "missing_actual",
+          "missing_both",
+          "coverage"
+        ],
+        "title": "CoverageOut"
+      },
+      "CutoffPreset": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label",
+          "note"
+        ],
+        "title": "CutoffPreset"
+      },
+      "CutoffSensitivityResponse": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisEcho"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "selected_cutoff": {
+            "type": "string",
+            "title": "Selected Cutoff"
+          },
+          "run_times_local": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Run Times Local",
+            "description": "Publication runs seen on at least a quarter of the days in the data, as local HH:MM."
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/SensitivityPoint"
+            },
+            "type": "array",
+            "title": "Points",
+            "description": "One per run time plus the selected cutoff, in time order."
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "provenance",
+          "selected_cutoff",
+          "run_times_local",
+          "points",
+          "note"
+        ],
+        "title": "CutoffSensitivityResponse"
+      },
+      "DailyAccuracy": {
+        "properties": {
+          "expected": {
+            "type": "integer",
+            "title": "Expected"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "rmse_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "wape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wape"
+          },
+          "mean_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Forecast Mw"
+          },
+          "mean_actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual Mw"
+          },
+          "delivery_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery Date"
+          },
+          "decision_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Decision Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected",
+          "n",
+          "coverage",
+          "mae_mw",
+          "rmse_mw",
+          "bias_mw",
+          "wape",
+          "mean_forecast_mw",
+          "mean_actual_mw",
+          "delivery_date",
+          "decision_date"
+        ],
+        "title": "DailyAccuracy"
+      },
+      "DataStatusOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "sufficient",
+              "partial",
+              "insufficient",
+              "no_data"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "sufficient_threshold": {
+            "type": "number",
+            "title": "Sufficient Threshold"
+          },
+          "partial_threshold": {
+            "type": "number",
+            "title": "Partial Threshold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message",
+          "sufficient_threshold",
+          "partial_threshold"
+        ],
+        "title": "DataStatusOut"
+      },
+      "DaypartAccuracy": {
+        "properties": {
+          "expected": {
+            "type": "integer",
+            "title": "Expected"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "rmse_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "wape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wape"
+          },
+          "mean_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Forecast Mw"
+          },
+          "mean_actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual Mw"
+          },
+          "daypart": {
+            "type": "string",
+            "enum": [
+              "day",
+              "night"
+            ],
+            "title": "Daypart"
+          },
+          "definition": {
+            "type": "string",
+            "title": "Definition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected",
+          "n",
+          "coverage",
+          "mae_mw",
+          "rmse_mw",
+          "bias_mw",
+          "wape",
+          "mean_forecast_mw",
+          "mean_actual_mw",
+          "daypart",
+          "definition"
+        ],
+        "title": "DaypartAccuracy"
+      },
+      "DecisionBriefResponse": {
+        "properties": {
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "decision_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Decision Date"
+          },
+          "delivery_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery Date"
+          },
+          "cutoff_local": {
+            "type": "string",
+            "title": "Cutoff Local"
+          },
+          "cutoff_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff Time"
+          },
+          "forecast_set": {
+            "$ref": "#/components/schemas/ForecastSetSummary"
+          },
+          "hindsight": {
+            "$ref": "#/components/schemas/BriefHindsight"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/BriefPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provenance",
+          "decision_date",
+          "delivery_date",
+          "cutoff_local",
+          "cutoff_time",
+          "forecast_set",
+          "hindsight",
+          "points"
+        ],
+        "title": "DecisionBriefResponse"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "details": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "title": "ErrorBody"
+      },
+      "ErrorDistributionOut": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "n_over": {
+            "type": "integer",
+            "title": "N Over"
+          },
+          "n_under": {
+            "type": "integer",
+            "title": "N Under"
+          },
+          "n_exact": {
+            "type": "integer",
+            "title": "N Exact"
+          },
+          "share_over": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Over"
+          },
+          "share_under": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share Under"
+          },
+          "mean_over_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Over Mw"
+          },
+          "mean_under_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Under Mw"
+          },
+          "max_over_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Over Mw"
+          },
+          "max_under_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Under Mw"
+          },
+          "signed_p05_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed P05 Mw"
+          },
+          "signed_p10_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed P10 Mw"
+          },
+          "signed_p50_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed P50 Mw"
+          },
+          "signed_p90_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed P90 Mw"
+          },
+          "signed_p95_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed P95 Mw"
+          },
+          "abs_p50_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abs P50 Mw"
+          },
+          "abs_p90_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abs P90 Mw"
+          },
+          "abs_p95_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abs P95 Mw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "n_over",
+          "n_under",
+          "n_exact",
+          "share_over",
+          "share_under",
+          "mean_over_mw",
+          "mean_under_mw",
+          "max_over_mw",
+          "max_under_mw",
+          "signed_p05_mw",
+          "signed_p10_mw",
+          "signed_p50_mw",
+          "signed_p90_mw",
+          "signed_p95_mw",
+          "abs_p50_mw",
+          "abs_p90_mw",
+          "abs_p95_mw"
+        ],
+        "title": "ErrorDistributionOut"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "ForecastAgeOut": {
+        "properties": {
+          "median_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median H"
+          },
+          "p95_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 H"
+          },
+          "max_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max H"
+          },
+          "stale_threshold_h": {
+            "type": "number",
+            "title": "Stale Threshold H"
+          },
+          "n_stale": {
+            "type": "integer",
+            "title": "N Stale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "median_h",
+          "p95_h",
+          "max_h",
+          "stale_threshold_h",
+          "n_stale"
+        ],
+        "title": "ForecastAgeOut"
+      },
+      "ForecastSetSummary": {
+        "properties": {
+          "n_intervals": {
+            "type": "integer",
+            "title": "N Intervals"
+          },
+          "n_with_forecast": {
+            "type": "integer",
+            "title": "N With Forecast"
+          },
+          "distinct_publications": {
+            "type": "integer",
+            "title": "Distinct Publications"
+          },
+          "first_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Publish Time"
+          },
+          "last_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Publish Time"
+          },
+          "mean_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Mw"
+          },
+          "peak_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Mw"
+          },
+          "peak_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Peak Time"
+          },
+          "trough_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trough Mw"
+          },
+          "trough_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trough Time"
+          },
+          "energy_mwh": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Mwh",
+            "description": "Sum of forecast MW x 0.5 h over intervals with a forecast."
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_intervals",
+          "n_with_forecast",
+          "distinct_publications",
+          "first_publish_time",
+          "last_publish_time",
+          "mean_mw",
+          "peak_mw",
+          "peak_time",
+          "trough_mw",
+          "trough_time",
+          "energy_mwh"
+        ],
+        "title": "ForecastSetSummary"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "data_loaded": {
+            "type": "boolean",
+            "title": "Data Loaded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "data_loaded"
+        ],
+        "title": "HealthResponse"
+      },
+      "HindsightOut": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "mae_mw",
+          "bias_mw",
+          "note"
+        ],
+        "title": "HindsightOut",
+        "description": "Latest-published forecast (includes revisions after the cutoff). Context only - never used in KPIs."
+      },
+      "HistogramBin": {
+        "properties": {
+          "lower_mw": {
+            "type": "number",
+            "title": "Lower Mw"
+          },
+          "upper_mw": {
+            "type": "number",
+            "title": "Upper Mw"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lower_mw",
+          "upper_mw",
+          "count"
+        ],
+        "title": "HistogramBin"
+      },
+      "HistogramOut": {
+        "properties": {
+          "bin_width_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bin Width Mw"
+          },
+          "bins": {
+            "items": {
+              "$ref": "#/components/schemas/HistogramBin"
+            },
+            "type": "array",
+            "title": "Bins"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bin_width_mw",
+          "bins"
+        ],
+        "title": "HistogramOut"
+      },
+      "IntervalRow": {
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time",
+            "description": "Delivery interval start (UTC)."
+          },
+          "delivery_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery Date"
+          },
+          "local_label": {
+            "type": "string",
+            "title": "Local Label",
+            "description": "Local delivery time, 'YYYY-MM-DD HH:MM' (Europe/London)."
+          },
+          "settlement_period": {
+            "type": "integer",
+            "title": "Settlement Period"
+          },
+          "decision_cutoff_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Decision Cutoff Time"
+          },
+          "forecast_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Publish Time"
+          },
+          "forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Mw"
+          },
+          "actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Mw"
+          },
+          "error_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Mw"
+          },
+          "abs_error_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abs Error Mw"
+          },
+          "forecast_age_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Age H",
+            "description": "Cutoff minus publication time."
+          },
+          "lead_time_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead Time H",
+            "description": "Delivery start minus publication time."
+          },
+          "latest_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Forecast Mw"
+          },
+          "latest_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Publish Time"
+          },
+          "match_status": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "missing_forecast",
+              "missing_actual",
+              "missing_both"
+            ],
+            "title": "Match Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_time",
+          "delivery_date",
+          "local_label",
+          "settlement_period",
+          "decision_cutoff_time",
+          "forecast_publish_time",
+          "forecast_mw",
+          "actual_mw",
+          "error_mw",
+          "abs_error_mw",
+          "forecast_age_h",
+          "lead_time_h",
+          "latest_forecast_mw",
+          "latest_publish_time",
+          "match_status"
+        ],
+        "title": "IntervalRow"
+      },
+      "IntervalsResponse": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisEcho"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "total_pages": {
+            "type": "integer",
+            "title": "Total Pages"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/IntervalRow"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "provenance",
+          "total",
+          "page",
+          "page_size",
+          "total_pages",
+          "items"
+        ],
+        "title": "IntervalsResponse"
+      },
+      "MetadataResponse": {
+        "properties": {
+          "app_version": {
+            "type": "string",
+            "title": "App Version"
+          },
+          "data_available": {
+            "type": "boolean",
+            "title": "Data Available"
+          },
+          "load_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Error"
+          },
+          "refresh": {
+            "$ref": "#/components/schemas/RefreshOut"
+          },
+          "provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProvenanceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceLink"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "analysis_month": {
+            "type": "string",
+            "title": "Analysis Month"
+          },
+          "bases": {
+            "items": {
+              "$ref": "#/components/schemas/BasisInfo"
+            },
+            "type": "array",
+            "title": "Bases"
+          },
+          "default_basis": {
+            "$ref": "#/components/schemas/Basis"
+          },
+          "default_cutoff": {
+            "type": "string",
+            "title": "Default Cutoff"
+          },
+          "cutoff_presets": {
+            "items": {
+              "$ref": "#/components/schemas/CutoffPreset"
+            },
+            "type": "array",
+            "title": "Cutoff Presets"
+          },
+          "forecast_alignment": {
+            "type": "string",
+            "enum": [
+              "hold",
+              "exact"
+            ],
+            "title": "Forecast Alignment",
+            "description": "How hourly forecasts are mapped onto half-hourly actuals (server setting)."
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/Thresholds"
+          },
+          "delivery_coverage_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Coverage From"
+          },
+          "delivery_coverage_to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delivery Coverage To"
+          },
+          "actuals_rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actuals Rows"
+          },
+          "forecasts_rows": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecasts Rows"
+          },
+          "quality": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Quality"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
+          "sign_convention": {
+            "type": "string",
+            "title": "Sign Convention"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "app_version",
+          "data_available",
+          "load_error",
+          "refresh",
+          "provenance",
+          "sources",
+          "analysis_month",
+          "bases",
+          "default_basis",
+          "default_cutoff",
+          "cutoff_presets",
+          "forecast_alignment",
+          "thresholds",
+          "delivery_coverage_from",
+          "delivery_coverage_to",
+          "actuals_rows",
+          "forecasts_rows",
+          "quality",
+          "warnings",
+          "sign_convention",
+          "unit"
+        ],
+        "title": "MetadataResponse"
+      },
+      "MetricsOut": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N",
+            "description": "Number of valid matched half-hourly observations."
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "rmse_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw",
+            "description": "Mean of (forecast - actual). Positive = over-forecast."
+          },
+          "wape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wape",
+            "description": "Sum|error| / Sum(actual); null when not meaningful."
+          },
+          "mean_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Forecast Mw"
+          },
+          "mean_actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual Mw"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "mae_mw",
+          "rmse_mw",
+          "bias_mw",
+          "wape",
+          "mean_forecast_mw",
+          "mean_actual_mw"
+        ],
+        "title": "MetricsOut"
+      },
+      "ProvenanceOut": {
+        "properties": {
+          "provenance": {
+            "type": "string",
+            "enum": [
+              "elexon_live",
+              "synthetic_dev"
+            ],
+            "title": "Provenance"
+          },
+          "is_synthetic": {
+            "type": "boolean",
+            "title": "Is Synthetic",
+            "description": "True only for the development fixture; never for Elexon data."
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Retrieved At",
+            "description": "When the snapshot was last successfully retrieved (UTC)."
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provenance",
+          "is_synthetic",
+          "source_name",
+          "retrieved_at",
+          "unit",
+          "attribution"
+        ],
+        "title": "ProvenanceOut"
+      },
+      "RefreshOut": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "never",
+              "running",
+              "ok",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "last_attempt_at",
+          "last_success_at",
+          "error"
+        ],
+        "title": "RefreshOut"
+      },
+      "RefreshResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Retrieved At"
+          },
+          "actuals_rows": {
+            "type": "integer",
+            "title": "Actuals Rows"
+          },
+          "forecasts_rows": {
+            "type": "integer",
+            "title": "Forecasts Rows"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "retrieved_at",
+          "actuals_rows",
+          "forecasts_rows",
+          "warnings"
+        ],
+        "title": "RefreshResponse"
+      },
+      "SensitivityPoint": {
+        "properties": {
+          "cutoff_local": {
+            "type": "string",
+            "title": "Cutoff Local",
+            "description": "Decision cutoff HH:MM Europe/London on the day before delivery."
+          },
+          "is_selected": {
+            "type": "boolean",
+            "title": "Is Selected",
+            "description": "True for the cutoff the user chose (the one every KPI uses)."
+          },
+          "is_run_time": {
+            "type": "boolean",
+            "title": "Is Run Time",
+            "description": "True when the cutoff sits at an observed WINDFOR publication run."
+          },
+          "run_used_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Used Local",
+            "description": "Local time of the publication run that supplied most of the forecasts at this cutoff."
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "rmse_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "wape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wape"
+          },
+          "median_forecast_age_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Forecast Age H",
+            "description": "Median hours between the forecast's publication and this cutoff."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cutoff_local",
+          "is_selected",
+          "is_run_time",
+          "run_used_local",
+          "n",
+          "coverage",
+          "mae_mw",
+          "rmse_mw",
+          "bias_mw",
+          "wape",
+          "median_forecast_age_h"
+        ],
+        "title": "SensitivityPoint"
+      },
+      "SlotAccuracy": {
+        "properties": {
+          "expected": {
+            "type": "integer",
+            "title": "Expected"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "rmse_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "wape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wape"
+          },
+          "mean_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Forecast Mw"
+          },
+          "mean_actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Actual Mw"
+          },
+          "slot": {
+            "type": "string",
+            "title": "Slot",
+            "description": "Local wall-clock half-hour start, HH:MM."
+          },
+          "settlement_period": {
+            "type": "integer",
+            "title": "Settlement Period",
+            "description": "Settlement period on a standard 48-period day."
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected",
+          "n",
+          "coverage",
+          "mae_mw",
+          "rmse_mw",
+          "bias_mw",
+          "wape",
+          "mean_forecast_mw",
+          "mean_actual_mw",
+          "slot",
+          "settlement_period"
+        ],
+        "title": "SlotAccuracy"
+      },
+      "SourceLink": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint"
+          },
+          "documentation_url": {
+            "type": "string",
+            "title": "Documentation Url"
+          },
+          "query_parameters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Query Parameters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "endpoint",
+          "documentation_url",
+          "query_parameters"
+        ],
+        "title": "SourceLink"
+      },
+      "SummaryResponse": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisEcho"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "data_status": {
+            "$ref": "#/components/schemas/DataStatusOut"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/CoverageOut"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricsOut"
+          },
+          "error_distribution": {
+            "$ref": "#/components/schemas/ErrorDistributionOut"
+          },
+          "baselines": {
+            "items": {
+              "$ref": "#/components/schemas/BaselineOut"
+            },
+            "type": "array",
+            "title": "Baselines"
+          },
+          "hindsight_latest": {
+            "$ref": "#/components/schemas/HindsightOut"
+          },
+          "forecast_age": {
+            "$ref": "#/components/schemas/ForecastAgeOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "provenance",
+          "data_status",
+          "coverage",
+          "metrics",
+          "error_distribution",
+          "baselines",
+          "hindsight_latest",
+          "forecast_age"
+        ],
+        "title": "SummaryResponse"
+      },
+      "Thresholds": {
+        "properties": {
+          "coverage_sufficient": {
+            "type": "number",
+            "title": "Coverage Sufficient"
+          },
+          "coverage_partial": {
+            "type": "number",
+            "title": "Coverage Partial"
+          },
+          "stale_forecast_hours": {
+            "type": "number",
+            "title": "Stale Forecast Hours"
+          },
+          "max_range_days": {
+            "type": "integer",
+            "title": "Max Range Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "coverage_sufficient",
+          "coverage_partial",
+          "stale_forecast_hours",
+          "max_range_days"
+        ],
+        "title": "Thresholds"
+      },
+      "TimeSeriesPoint": {
+        "properties": {
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "delivery_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery Date"
+          },
+          "settlement_period": {
+            "type": "integer",
+            "title": "Settlement Period"
+          },
+          "actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Mw"
+          },
+          "forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Mw"
+          },
+          "forecast_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Publish Time"
+          },
+          "latest_forecast_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Forecast Mw"
+          },
+          "latest_publish_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Publish Time"
+          },
+          "error_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Mw"
+          },
+          "match_status": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "missing_forecast",
+              "missing_actual",
+              "missing_both"
+            ],
+            "title": "Match Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_time",
+          "delivery_date",
+          "settlement_period",
+          "actual_mw",
+          "forecast_mw",
+          "forecast_publish_time",
+          "latest_forecast_mw",
+          "latest_publish_time",
+          "error_mw",
+          "match_status"
+        ],
+        "title": "TimeSeriesPoint"
+      },
+      "TimeSeriesResponse": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisEcho"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/TimeSeriesPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "provenance",
+          "points"
+        ],
+        "title": "TimeSeriesResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VintageRow": {
+        "properties": {
+          "publish_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Publish Time"
+          },
+          "forecast_mw": {
+            "type": "number",
+            "title": "Forecast Mw"
+          },
+          "lead_time_h": {
+            "type": "number",
+            "title": "Lead Time H",
+            "description": "Delivery start minus publication time."
+          },
+          "minutes_from_cutoff": {
+            "type": "number",
+            "title": "Minutes From Cutoff",
+            "description": "Publication minus cutoff; negative = before the cutoff."
+          },
+          "eligible": {
+            "type": "boolean",
+            "title": "Eligible",
+            "description": "publish_time <= decision cutoff"
+          },
+          "selected": {
+            "type": "boolean",
+            "title": "Selected",
+            "description": "The latest eligible publication - the one used in all KPIs."
+          }
+        },
+        "type": "object",
+        "required": [
+          "publish_time",
+          "forecast_mw",
+          "lead_time_h",
+          "minutes_from_cutoff",
+          "eligible",
+          "selected"
+        ],
+        "title": "VintageRow"
+      },
+      "VintagesResponse": {
+        "properties": {
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "local_label": {
+            "type": "string",
+            "title": "Local Label"
+          },
+          "delivery_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Delivery Date"
+          },
+          "settlement_period": {
+            "type": "integer",
+            "title": "Settlement Period"
+          },
+          "forecast_for_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Forecast For Time",
+            "description": "Start of the WINDFOR block this half-hour's forecast refers to (equals start_time unless forecasts are hourly)."
+          },
+          "forecast_block_minutes": {
+            "type": "integer",
+            "title": "Forecast Block Minutes"
+          },
+          "forecast_alignment_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forecast Alignment Note"
+          },
+          "cutoff_local": {
+            "type": "string",
+            "title": "Cutoff Local"
+          },
+          "cutoff_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff Time"
+          },
+          "actual_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Mw"
+          },
+          "selected": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VintageRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VintageRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "n_vintages": {
+            "type": "integer",
+            "title": "N Vintages"
+          },
+          "n_eligible": {
+            "type": "integer",
+            "title": "N Eligible"
+          },
+          "vintages": {
+            "items": {
+              "$ref": "#/components/schemas/VintageRow"
+            },
+            "type": "array",
+            "title": "Vintages"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation",
+            "description": "Set when the comparison cannot be shown in full, and why."
+          }
+        },
+        "type": "object",
+        "required": [
+          "provenance",
+          "start_time",
+          "local_label",
+          "delivery_date",
+          "settlement_period",
+          "forecast_for_time",
+          "forecast_block_minutes",
+          "forecast_alignment_note",
+          "cutoff_local",
+          "cutoff_time",
+          "actual_mw",
+          "selected",
+          "latest",
+          "n_vintages",
+          "n_eligible",
+          "vintages",
+          "explanation"
+        ],
+        "title": "VintagesResponse"
+      }
+    }
+  }
+}

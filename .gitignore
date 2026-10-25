@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+*.tsbuildinfo
+
+# Env / secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# Data: only the vetted real snapshot may be committed; dev/synthetic data never
+data/snapshots/*
+!data/snapshots/current/
+!data/snapshots/README.md
+data/dev/
+data/tmp/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Test / QA artefacts
+playwright-report/
+test-results/
+qa-artifacts/
+
+# Sandbox-only helper (never commit)
+.sandbox-ca.crt
+
+# Vercel CLI local project link (created by `vercel link`; not source)
+.vercel

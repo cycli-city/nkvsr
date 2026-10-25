@@ -1,0 +1,52 @@
+name: Dependency audit
+
+# Fails when a dependency has a known vulnerability. Kept out of the main CI on purpose: a newly published advisory must
+# not turn unrelated pull requests red. It runs weekly, on demand, and whenever a dependency manifest changes.
+on:
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "backend/pyproject.toml"
+      - ".github/workflows/dependency-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: npm audit (production dependencies)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --ignore-scripts --no-fund
+      - run: npm audit --omit=dev --audit-level=moderate
+
+  pip:
+    name: pip-audit (runtime dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve the exact runtime dependency set the Docker image would install
+        run: |
+          python -m venv /tmp/resolved
+          /tmp/resolved/bin/pip install --quiet ./backend
+          /tmp/resolved/bin/pip freeze --exclude-editable | grep -vi '^windscope' > /tmp/runtime-requirements.txt
+          wc -l /tmp/runtime-requirements.txt
+      - name: Audit it
+        run: pipx run pip-audit --requirement /tmp/runtime-requirements.txt --no-deps --disable-pip --progress-spinner off

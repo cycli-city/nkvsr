@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "provenance": "elexon_live",
+  "source_name": "Elexon BMRS (Insights Solution API)",
+  "base_url": "https://data.elexon.co.uk/bmrs/api/v1",
+  "datasets": [
+    {
+      "code": "FUELHH",
+      "endpoint": "https://data.elexon.co.uk/bmrs/api/v1/datasets/FUELHH/stream",
+      "documentation_url": "https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/FUELHH/stream",
+      "query_parameters": {
+        "settlementDateFrom": "2025-12-22",
+        "settlementDateTo": "2026-02-01",
+        "fuelType": "WIND"
+      }
+    },
+    {
+      "code": "WINDFOR",
+      "endpoint": "https://data.elexon.co.uk/bmrs/api/v1/datasets/WINDFOR/stream",
+      "documentation_url": "https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/stream",
+      "query_parameters": {
+        "publishDateTimeFrom": "2025-12-28T00:00Z",
+        "publishDateTimeTo": "2026-02-02T00:00Z"
+      }
+    }
+  ],
+  "retrieved_at": "2026-10-25T16:44:15.203554Z",
+  "unit": "MW",
+  "analysis_month": "2026-01",
+  "delivery_coverage_from": "2026-01-01",
+  "delivery_coverage_to": "2026-02-01",
+  "actuals_rows": 2016,
+  "forecasts_rows": 18664,
+  "quality": {
+    "actuals": {
+      "dataset": "FUELHH",
+      "rows_in": 2016,
+      "rows_kept": 2016,
+      "ignored_other_fuel_types": 0,
+      "outside_window": 0,
+      "duplicates_removed": 0,
+      "conflicting_duplicates": 0,
+      "negative_values": 0,
+      "published_after_delivery_start": 0,
+      "dropped": {}
+    },
+    "forecasts": {
+      "dataset": "WINDFOR",
+      "rows_in": 21024,
+      "rows_kept": 18664,
+      "ignored_other_fuel_types": 0,
+      "outside_window": 2360,
+      "duplicates_removed": 0,
+      "conflicting_duplicates": 0,
+      "negative_values": 0,
+      "published_after_delivery_start": 3817,
+      "dropped": {}
+    },
+    "forecast_profile": {
+      "distinct_publish_times": 272,
+      "start_resolution_minutes": 60.0,
+      "publish_cadence_minutes_median": 180.0,
+      "lead_time_hours_median": 21.5,
+      "lead_time_hours_max": 66.5
+    },
+    "coverage_window": {
+      "expected_intervals": 1536,
+      "intervals_with_actual": 1536,
+      "intervals_with_any_forecast": 1536,
+      "forecast_block_minutes": 60
+    }
+  },
+  "warnings": [
+    "WINDFOR start times are 60 minutes apart but FUELHH actuals are half-hourly. With FORECAST_ALIGNMENT=hold each forecast hour is applied to both half-hours it covers; with 'exact' the other half-hours count as missing. Nothing is interpolated."
+  ],
+  "files": {
+    "actuals.parquet": "f96cb45dc88f56d46a4e30b9e96d8271de25fc9eca88becfed7814f667dad233",
+    "forecasts.parquet": "07d6dcb26924586b3de37a2210b64967aee6ca2d9769afeaad131dee3aa86aa0"
+  }
+}

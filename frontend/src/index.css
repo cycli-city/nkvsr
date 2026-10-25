@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Navy scale: brand + chart "actual" series */
+  --color-navy-50: #eef3fa;
+  --color-navy-100: #d9e3f2;
+  --color-navy-200: #b3c6e3;
+  --color-navy-400: #5f84bb;
+  --color-navy-600: #254a82;
+  --color-navy-700: #1b3a68;
+  --color-navy-800: #132c52;
+  --color-navy-900: #0b1f3f;
+  --color-navy-950: #071428;
+
+  /* Semantic chart colours (checked for contrast on white) */
+  --color-series-actual: #0b1f3f;
+  --color-series-forecast: #0d9488;
+  --color-series-hindsight: #94a3b8;
+  --color-over: #b45309; /* over-forecast: buyer short -> risk */
+  --color-under: #0f766e; /* under-forecast: buyer long */
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    * {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

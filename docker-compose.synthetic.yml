@@ -1,0 +1,19 @@
+# Offline UI demo on SYNTHETIC data. Merge with the main file:
+#   docker compose -f docker-compose.yml -f docker-compose.synthetic.yml up --build
+#
+# The backend generates a clearly-labelled synthetic snapshot into a throw-away tmpfs and runs in development
+# mode (production mode refuses synthetic data). The UI shows a red banner the whole time.
+# NOTHING produced this way is Elexon data; never screenshot it for the pitch.
+services:
+  backend:
+    environment:
+      APP_ENV: development
+      DATA_DIR: /tmp/windscope-dev
+    tmpfs:
+      - /tmp/windscope-dev:uid=10001,gid=10001,mode=0755
+    command:
+      - sh
+      - -c
+      - >
+        python -m app.cli generate-synthetic-dev --data-dir /tmp/windscope-dev &&
+        exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000
