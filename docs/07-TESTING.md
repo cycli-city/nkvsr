@@ -94,6 +94,7 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 | A formatting inconsistency (hyphen vs typographic minus in one sentence) and a bare "0 MW" for an identical forecast | writing the unit test for the plain-language reading |
 | Dragging a timeline zoom handle and releasing over the plot counted as a click on the chart and **navigated away** to the Vintages page | **the live acceptance test** (jsdom cannot drag; the earlier e2e never dragged a handle); regression test added, fails without the fix |
 | After zooming to a week the axis still read "9 Jan, 9 Jan, 10 Jan, 10 Jan" (label format chosen from the whole month) | the same acceptance run; e2e + unit tests added |
+| The first whole-app Vitest test timed out intermittently (Testing Library's default one-second wait for the code-split dashboard) when the machine was busy; 2 of 3 parallel runs failed | noticed as a single red run after a heavy backend run, then reproduced on purpose by running the suite three times in parallel; the async wait is now 5 s and the test timeout 15 s (6 of 6 parallel runs pass) |
 | FUELHH `publishTime` is not always the period end (4 of 2,016 rows were stamped up to 145 min later), so a fixed lag alone could let a late value into the baseline | checking the real snapshot; fixed by ADR-022 |
 
 ## Not covered / not run — be honest about these

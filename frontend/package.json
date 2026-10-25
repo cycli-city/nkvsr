@@ -3,7 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "WindScope UK \u2014 day-ahead wind forecast analytics UI",
+  "description": "WindScope UK — day-ahead wind forecast analytics UI",
+  "license": "MIT",
+  "author": "cycli-city",
+  "homepage": "https://windscope-uk-sand.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cycli-city/nkvsr.git",
+    "directory": "frontend"
+  },
+  "bugs": {
+    "url": "https://github.com/cycli-city/nkvsr/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

@@ -1,8 +1,13 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { cloneElement, type ReactElement } from 'react'
 import type * as Recharts from 'recharts'
 import { afterEach, vi } from 'vitest'
+
+// The default one-second wait for `findBy*` / `waitFor` is too tight for the first render of the whole app, which loads
+// code-split pages: on a busy machine (or a small CI runner) it timed out intermittently. Give async queries room;
+// a test that passes still passes as soon as its element appears.
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(() => {
   cleanup()

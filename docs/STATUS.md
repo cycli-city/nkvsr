@@ -16,6 +16,15 @@ _Update this file at the end of each work block. It is the first thing to read a
 
 ## Open items needing the user
 
+0a. **GitHub repository settings** (no tool in the build environment can change them; 2 minutes in the browser, or one command with the GitHub CLI):
+   ```bash
+   gh repo edit cycli-city/nkvsr \
+     --description "Day-ahead wind forecast accuracy analytics for GB power procurement (Elexon FUELHH + WINDFOR). React + TypeScript, FastAPI + pandas, Docker." \
+     --homepage "https://windscope-uk-sand.vercel.app" \
+     --add-topic wind-power,energy,forecasting,elexon,fastapi,react,typescript,pandas,docker,data-visualization \
+     --enable-wiki=false
+   ```
+   Also useful: *Settings → Code security*: enable private vulnerability reporting, Dependabot alerts and secret scanning; *Settings → General*: automatically delete head branches.
 0. *(Done)* The project is on `main` (PR #1, merge commit `49d4288`); Render builds `main`.
 1. **Incognito check** of the two URLs below (the owner disabled Vercel Authentication, which had put a login page in front of the UI). Then the **video** and the **form**.
 2. **Video**: recording/upload is a user action; script, real numbers and checklist in `docs/08-DEMO-GUIDE.md`.
