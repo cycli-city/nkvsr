@@ -23,3 +23,9 @@ Notes
 - The results of the run recorded for submission are in [`docs/11-UAT-REPORT.md`](../docs/11-UAT-REPORT.md). The hermetic, CI-run
   browser suite is `npm run test:e2e` (Playwright on a labelled synthetic snapshot); this suite complements it by testing the
   real deployment.
+
+## Layout
+
+- `lib.cjs`: the shared harness (browser launch with console/network/CSP capture, `t()` check runner, helpers).
+- `suites/*.cjs`: one file per area, run in file-name order by `run-all.cjs`: app shell, selection controls, summary and brief, timeline, accuracy and timing, intervals explorer, vintages/methodology/errors, phone/tablet/keyboard, API checks.
+- Run a single suite with `node uat/suites/06-intervals-explorer.cjs`.

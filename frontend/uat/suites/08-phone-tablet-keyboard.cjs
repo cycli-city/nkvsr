@@ -1,5 +1,5 @@
 // UAT part 3: phone (390x844, touch) and tablet (768x1024). LIVE site.
-const L = require('./lib.cjs')
+const L = require('../lib.cjs')
 const { t, eq, ok, until, UI } = L
 
 async function overflow(page) {

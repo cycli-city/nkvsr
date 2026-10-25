@@ -1,6 +1,6 @@
 // API-level acceptance checks against the deployed API: endpoints, validation, error envelope, CORS, admin guard, ETag, headers.
 const { request } = require('@playwright/test')
-const L = require('./lib.cjs')
+const L = require('../lib.cjs')
 const { t, eq, ok } = L
 
 const Q = 'basis=decision_date&from=2026-01-01&to=2026-01-31&cutoff=09:20'
