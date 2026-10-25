@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
-import { openDashboard, summary } from './helpers'
+import { openDashboard, summary, revealEverything } from './helpers'
 
 const ERROR_ENVELOPE = (code: string, message: string) =>
   JSON.stringify({ error: { code, message, details: null } })
@@ -83,6 +83,7 @@ test.describe('Responsive layout', () => {
         await page.goto(path)
         await expect(page.locator('main')).toBeVisible()
         await page.waitForLoadState('networkidle')
+        await revealEverything(page) // include panels that only load once scrolled to
         const [scroll, client] = await page.evaluate(() => [
           document.documentElement.scrollWidth,
           document.documentElement.clientWidth,
@@ -92,28 +93,35 @@ test.describe('Responsive layout', () => {
     })
   }
 
-  // The app sets no font family, so each device falls back to its own system font. A layout that only fits
-  // the narrow glyphs of one machine's font overflows on another (this caught the Intervals pager on CI,
-  // whose fallback font is wider than the one used during development). Force a wide font so the check
-  // does not depend on which fonts the test machine happens to have.
-  for (const width of [320, 390]) {
-    test(`no horizontal page overflow at ${width}px with a wide fallback font`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 800 })
-      for (const path of PAGES) {
-        await page.goto(path)
-        await expect(page.locator('main')).toBeVisible()
-        await page.waitForLoadState('networkidle')
-        await page.addStyleTag({
-          content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}',
-        })
-        const [scroll, client] = await page.evaluate(() => [
-          document.documentElement.scrollWidth,
-          document.documentElement.clientWidth,
-        ])
-        expect(scroll, `${path} overflows at ${width}px (wide font)`).toBeLessThanOrEqual(client)
-      }
-    })
-  }
+  test.describe('wide fallback font', () => {
+    // These tests inject a <style> tag to force a wide font, which the strict Content-Security-Policy (correctly)
+    // refuses; layout is what they check, and CSP has its own spec (security.spec.ts).
+    test.use({ bypassCSP: true })
+
+    // The app sets no font family, so each device falls back to its own system font. A layout that only fits
+    // the narrow glyphs of one machine's font overflows on another (this caught the Intervals pager on CI,
+    // whose fallback font is wider than the one used during development). Force a wide font so the check
+    // does not depend on which fonts the test machine happens to have.
+    for (const width of [320, 390]) {
+      test(`no horizontal page overflow at ${width}px with a wide fallback font`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 800 })
+        for (const path of PAGES) {
+          await page.goto(path)
+          await expect(page.locator('main')).toBeVisible()
+          await page.waitForLoadState('networkidle')
+          await revealEverything(page)
+          await page.addStyleTag({
+            content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}',
+          })
+          const [scroll, client] = await page.evaluate(() => [
+            document.documentElement.scrollWidth,
+            document.documentElement.clientWidth,
+          ])
+          expect(scroll, `${path} overflows at ${width}px (wide font)`).toBeLessThanOrEqual(client)
+        }
+      })
+    }
+  })
 
   test('on a phone the selection controls collapse to one line and can be expanded', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
@@ -139,6 +147,7 @@ test.describe('Accessibility', () => {
       await page.waitForLoadState('networkidle')
       await expect(page.locator('main')).toBeVisible()
       await page.waitForTimeout(500) // let charts finish their first paint
+      await revealEverything(page) // audit the lazily loaded panels too
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze()

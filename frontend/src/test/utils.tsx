@@ -17,6 +17,7 @@ export const defaultRoutes = (): Routes => ({
   '/api/decision-brief': fx.brief(),
   '/api/intervals': fx.intervals(),
   '/api/forecast-vintages': fx.vintages(),
+  '/api/cutoff-sensitivity': fx.sensitivity(),
 })
 
 /** Replace global fetch with an in-memory router; returns the spy so tests can inspect requests. */

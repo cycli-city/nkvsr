@@ -47,6 +47,15 @@ export const useAccuracy = (p: AnalysisParams | null) =>
     ...base,
   })
 
+export const useCutoffSensitivity = (p: AnalysisParams | null) =>
+  useQuery({
+    queryKey: ['cutoff-sensitivity', p],
+    queryFn: ({ signal }) => api.cutoffSensitivity(p as AnalysisParams, signal),
+    enabled: p !== null,
+    placeholderData: keepPreviousData,
+    ...base,
+  })
+
 export const useIntervals = (p: AnalysisParams | null, q: IntervalQuery) =>
   useQuery({
     queryKey: ['intervals', p, q],

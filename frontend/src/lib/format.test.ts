@@ -10,6 +10,7 @@ import {
   fmtPct,
   fmtRelativeMinutes,
   fmtSignedMW,
+  fmtSignedPct,
   londonLocalToUtcIso,
   shiftHalfHours,
   UNAVAILABLE,
@@ -40,6 +41,16 @@ describe('numbers', () => {
     expect(fmtSignedMW(-85.2)).toBe('−85 MW')
     expect(fmtSignedMW(0)).toBe('0 MW')
     expect(fmtSignedMW(-0.2)).toBe('0 MW')
+  })
+
+  it('formats a signed share with the same typographic minus', () => {
+    expect(fmtSignedPct(0.0132)).toBe('+1.3%')
+    expect(fmtSignedPct(-0.0127)).toBe('−1.3%')
+    expect(fmtSignedPct(-0.1042)).toBe('−10.4%')
+    expect(fmtSignedPct(0)).toBe('0.0%')
+    expect(fmtSignedPct(-0.0001)).toBe('0.0%')
+    expect(fmtSignedPct(null)).toBe(UNAVAILABLE)
+    expect(fmtSignedPct(Number.NaN)).toBe(UNAVAILABLE)
   })
 
   it('classifies error direction using forecast − actual', () => {

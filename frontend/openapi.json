@@ -1100,6 +1100,128 @@
         }
       }
     },
+    "/api/cutoff-sensitivity": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "How much does the decision time matter?",
+        "description": "Accuracy if the decision had been taken just after each regular WINDFOR publication run (selected cutoff marked).",
+        "operationId": "cutoff_sensitivity_api_cutoff_sensitivity_get",
+        "parameters": [
+          {
+            "name": "basis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Basis"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`.",
+              "title": "Basis"
+            },
+            "description": "How 'January' is interpreted. `decision_date` (default) or `delivery_date`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First date (inclusive), in the date type of `basis`.",
+              "title": "From"
+            },
+            "description": "First date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last date (inclusive), in the date type of `basis`.",
+              "title": "To"
+            },
+            "description": "Last date (inclusive), in the date type of `basis`."
+          },
+          {
+            "name": "cutoff",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20).",
+              "examples": [
+                "09:20"
+              ],
+              "title": "Cutoff"
+            },
+            "description": "Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CutoffSensitivityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No dataset loaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/decision-brief": {
       "get": {
         "tags": [
@@ -1688,6 +1810,50 @@
           "note"
         ],
         "title": "CutoffPreset"
+      },
+      "CutoffSensitivityResponse": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisEcho"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceOut"
+          },
+          "selected_cutoff": {
+            "type": "string",
+            "title": "Selected Cutoff"
+          },
+          "run_times_local": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Run Times Local",
+            "description": "Publication runs seen on at least a quarter of the days in the data, as local HH:MM."
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/SensitivityPoint"
+            },
+            "type": "array",
+            "title": "Points",
+            "description": "One per run time plus the selected cutoff, in time order."
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis",
+          "provenance",
+          "selected_cutoff",
+          "run_times_local",
+          "points",
+          "note"
+        ],
+        "title": "CutoffSensitivityResponse"
       },
       "DailyAccuracy": {
         "properties": {
@@ -3153,6 +3319,123 @@
           "warnings"
         ],
         "title": "RefreshResponse"
+      },
+      "SensitivityPoint": {
+        "properties": {
+          "cutoff_local": {
+            "type": "string",
+            "title": "Cutoff Local",
+            "description": "Decision cutoff HH:MM Europe/London on the day before delivery."
+          },
+          "is_selected": {
+            "type": "boolean",
+            "title": "Is Selected",
+            "description": "True for the cutoff the user chose (the one every KPI uses)."
+          },
+          "is_run_time": {
+            "type": "boolean",
+            "title": "Is Run Time",
+            "description": "True when the cutoff sits at an observed WINDFOR publication run."
+          },
+          "run_used_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Used Local",
+            "description": "Local time of the publication run that supplied most of the forecasts at this cutoff."
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "mae_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae Mw"
+          },
+          "rmse_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rmse Mw"
+          },
+          "bias_mw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias Mw"
+          },
+          "wape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wape"
+          },
+          "median_forecast_age_h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Forecast Age H",
+            "description": "Median hours between the forecast's publication and this cutoff."
+          }
+        },
+        "type": "object",
+        "required": [
+          "cutoff_local",
+          "is_selected",
+          "is_run_time",
+          "run_used_local",
+          "n",
+          "coverage",
+          "mae_mw",
+          "rmse_mw",
+          "bias_mw",
+          "wape",
+          "median_forecast_age_h"
+        ],
+        "title": "SensitivityPoint"
       },
       "SlotAccuracy": {
         "properties": {

@@ -33,6 +33,14 @@ export function fmtPct(v: number | null | undefined, digits = 1): string {
   return isNum(v) ? `${(v * 100).toFixed(digits)}%` : UNAVAILABLE
 }
 
+/** Signed share with a typographic minus, to sit beside `fmtSignedMW`: `+1.3%`, `−10.4%`. Zero has no sign. */
+export function fmtSignedPct(v: number | null | undefined, digits = 1): string {
+  if (!isNum(v)) return UNAVAILABLE
+  const pct = Number((v * 100).toFixed(digits))
+  if (pct === 0) return `${(0).toFixed(digits)}%`
+  return `${pct > 0 ? '+' : MINUS}${Math.abs(pct).toFixed(digits)}%`
+}
+
 /** `forecast − actual`: positive = over-forecast (less wind than predicted). */
 export function errorDirection(v: number | null | undefined): 'over' | 'under' | 'none' | null {
   if (!isNum(v)) return null

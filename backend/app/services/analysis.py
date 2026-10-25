@@ -7,6 +7,7 @@ unit-tested there. This module only validates parameters, runs the pipeline, cac
 
 from __future__ import annotations
 
+import secrets
 import threading
 from collections import OrderedDict
 from collections.abc import Iterator
@@ -230,6 +231,7 @@ class AnalysisService:
         self._settings = settings
         self._cache: OrderedDict[tuple[Any, ...], pd.DataFrame] = OrderedDict()
         self._lock = threading.Lock()
+        self._boot_id = secrets.token_hex(6)  # new per process: see cache_version()
 
     # ------------------------------------------------------------------------------------------
     # Parameter handling
@@ -264,6 +266,30 @@ class AnalysisService:
             )
         cutoff_time, cutoff_str = self.parse_cutoff(cutoff)
         return Ctx(dataset, window, cutoff_time, cutoff_str)
+
+    def cache_version(self) -> str | None:
+        """Opaque identity of everything that shapes a response: the snapshot, the analysis settings and this process.
+
+        ``None`` while no dataset is loaded. Used by the response cache for keys and ETags; the process id component
+        guarantees that a redeploy (new code) is never answered with a stale ``304``.
+        """
+        dataset = self._store.maybe_get()
+        if dataset is None:
+            return None
+        cfg = self._settings
+        return "|".join(
+            [
+                dataset.fingerprint,
+                str(dataset.manifest.retrieved_at),
+                cfg.forecast_alignment,
+                cfg.decision_cutoff_local,
+                str(cfg.actual_availability_lag_minutes),
+                f"{cfg.coverage_sufficient}/{cfg.coverage_partial}/{cfg.stale_forecast_hours}",
+                f"{cfg.max_range_days}/{cfg.analysis_month}/{cfg.default_basis.value}",
+                __version__,
+                self._boot_id,
+            ]
+        )
 
     def forecast_block_minutes(self, dataset: Dataset) -> int:
         """Span of one forecast value: 60 for the hourly WINDFOR feed under ``hold``, else 30."""
@@ -647,6 +673,87 @@ class AnalysisService:
             n_eligible=n_eligible,
             vintages=rows,
             explanation=explanation,
+        )
+
+    # --- decision-time sensitivity -----------------------------------------------------------------
+
+    RUN_MIN_DAY_SHARE = (
+        0.25  # a publication time must occur on at least this share of days to count as a "run"
+    )
+
+    def publication_runs(self, dataset: Dataset) -> list[str]:
+        """Local ``HH:MM`` times at which WINDFOR is regularly published (one-off, off-schedule releases are ignored)."""
+        published = tu.as_utc_ns(dataset.forecasts["publish_utc"].drop_duplicates())
+        if published.empty:
+            return []
+        local = published.dt.tz_convert(tu.LONDON)
+        clock = local.dt.strftime("%H:%M")
+        days = local.dt.date.nunique()
+        counts = (
+            pd.DataFrame({"clock": clock, "day": local.dt.date})
+            .drop_duplicates()
+            .groupby("clock")
+            .size()
+        )
+        return sorted(counts[counts >= max(1.0, self.RUN_MIN_DAY_SHARE * days)].index.tolist())
+
+    def cutoff_sensitivity(self, ctx: Ctx) -> s.CutoffSensitivityResponse:
+        """Re-run the accuracy analysis as if the decision had been taken just after each regular publication run.
+
+        Each point uses exactly the same rule as every KPI (latest publication at or before that cutoff on the day
+        before delivery, same window, same eligible set); only the cutoff moves. It answers "how much does the
+        decision time matter?" and shows where the chosen cutoff sits relative to the runs.
+        """
+        ds = ctx.dataset
+        runs = self.publication_runs(ds)
+        cutoffs = sorted({*runs, ctx.cutoff_str})
+        forecasts = self._forecasts_for_window(ds, ctx)
+        block = self.forecast_block_minutes(ds)
+        points: list[s.SensitivityPoint] = []
+        for clock in cutoffs:
+            frame = build_matched_frame(
+                delivery_from=ctx.window.delivery_from,
+                delivery_to=ctx.window.delivery_to,
+                cutoff_local=tu.parse_hhmm(clock),
+                actuals=ds.actuals,
+                forecasts=forecasts,
+                as_of=ds.retrieved_at,
+                forecast_block_minutes=block,
+            )
+            matched = matched_only(frame)
+            metrics = compute_error_metrics(matched["forecast_mw"], matched["actual_mw"])
+            cov = compute_coverage(frame)
+            used = (
+                tu.as_utc_ns(matched["publish_utc"]).dt.tz_convert(tu.LONDON).dt.strftime("%H:%M")
+            )
+            points.append(
+                s.SensitivityPoint(
+                    cutoff_local=clock,
+                    is_selected=clock == ctx.cutoff_str,
+                    is_run_time=clock in runs,
+                    run_used_local=str(used.mode().iloc[0]) if len(used) else None,
+                    n=metrics.n,
+                    coverage=num(cov.coverage),
+                    mae_mw=num(metrics.mae),
+                    rmse_mw=num(metrics.rmse),
+                    bias_mw=num(metrics.bias),
+                    wape=num(metrics.wape),
+                    median_forecast_age_h=num(matched["forecast_age_h"].median())
+                    if len(matched)
+                    else None,
+                )
+            )
+        return s.CutoffSensitivityResponse(
+            analysis=self.analysis_echo(ctx),
+            provenance=self.provenance(ds),
+            selected_cutoff=ctx.cutoff_str,
+            run_times_local=runs,
+            points=points,
+            note=(
+                "Each point repeats the whole analysis with only the decision cutoff moved: the latest forecast "
+                "published at or before that time on the day before delivery. Runs after your chosen cutoff are "
+                "shown for comparison only; a buyer deciding at the chosen cutoff could not have used them."
+            ),
         )
 
     # --- decision brief ----------------------------------------------------------------------------

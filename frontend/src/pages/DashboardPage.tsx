@@ -1,5 +1,6 @@
 import { AccuracyPanel } from '../components/panels/AccuracyPanel'
 import { DecisionBriefPanel } from '../components/panels/DecisionBriefPanel'
+import { SensitivityPanel } from '../components/panels/SensitivityPanel'
 import { TimelinePanel } from '../components/panels/TimelinePanel'
 import { SummaryPanel } from '../components/kpi/SummaryPanel'
 
@@ -8,6 +9,7 @@ const SECTIONS = [
   { id: 'brief-h', label: 'Decision brief' },
   { id: 'timeline-h', label: 'Timeline' },
   { id: 'accuracy-h', label: 'Accuracy' },
+  { id: 'timing-h', label: 'Decision timing' },
 ]
 
 export function DashboardPage() {
@@ -29,6 +31,7 @@ export function DashboardPage() {
       <DecisionBriefPanel />
       <TimelinePanel />
       <AccuracyPanel />
+      <SensitivityPanel />
     </div>
   )
 }

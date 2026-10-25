@@ -129,6 +129,17 @@ def forecast_vintages(
 
 
 @router.get(
+    "/cutoff-sensitivity",
+    response_model=s.CutoffSensitivityResponse,
+    responses=ERRORS,
+    summary="How much does the decision time matter?",
+)
+def cutoff_sensitivity(ctx: AnalysisCtx, service: Service) -> s.CutoffSensitivityResponse:
+    """Accuracy if the decision had been taken just after each regular WINDFOR publication run (selected cutoff marked)."""
+    return service.cutoff_sensitivity(ctx)
+
+
+@router.get(
     "/decision-brief",
     response_model=s.DecisionBriefResponse,
     responses=ERRORS,

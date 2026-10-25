@@ -29,6 +29,8 @@ export type Vintages = S['VintagesResponse']
 export type VintageRow = S['VintageRow']
 export type DecisionBrief = S['DecisionBriefResponse']
 export type BriefPoint = S['BriefPoint']
+export type CutoffSensitivity = S['CutoffSensitivityResponse']
+export type SensitivityPoint = S['SensitivityPoint']
 
 /** The analysis selection that is mirrored in the URL and sent with every analytics request. */
 export interface AnalysisParams {

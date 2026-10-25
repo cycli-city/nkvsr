@@ -189,6 +189,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cutoff-sensitivity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How much does the decision time matter?
+         * @description Accuracy if the decision had been taken just after each regular WINDFOR publication run (selected cutoff marked).
+         */
+        get: operations["cutoff_sensitivity_api_cutoff_sensitivity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/decision-brief": {
         parameters: {
             query?: never;
@@ -425,6 +445,25 @@ export interface components {
             value: string;
             /** Label */
             label: string;
+            /** Note */
+            note: string;
+        };
+        /** CutoffSensitivityResponse */
+        CutoffSensitivityResponse: {
+            analysis: components["schemas"]["AnalysisEcho"];
+            provenance: components["schemas"]["ProvenanceOut"];
+            /** Selected Cutoff */
+            selected_cutoff: string;
+            /**
+             * Run Times Local
+             * @description Publication runs seen on at least a quarter of the days in the data, as local HH:MM.
+             */
+            run_times_local: string[];
+            /**
+             * Points
+             * @description One per run time plus the selected cutoff, in time order.
+             */
+            points: components["schemas"]["SensitivityPoint"][];
             /** Note */
             note: string;
         };
@@ -867,6 +906,46 @@ export interface components {
             forecasts_rows: number;
             /** Warnings */
             warnings: string[];
+        };
+        /** SensitivityPoint */
+        SensitivityPoint: {
+            /**
+             * Cutoff Local
+             * @description Decision cutoff HH:MM Europe/London on the day before delivery.
+             */
+            cutoff_local: string;
+            /**
+             * Is Selected
+             * @description True for the cutoff the user chose (the one every KPI uses).
+             */
+            is_selected: boolean;
+            /**
+             * Is Run Time
+             * @description True when the cutoff sits at an observed WINDFOR publication run.
+             */
+            is_run_time: boolean;
+            /**
+             * Run Used Local
+             * @description Local time of the publication run that supplied most of the forecasts at this cutoff.
+             */
+            run_used_local: string | null;
+            /** N */
+            n: number;
+            /** Coverage */
+            coverage: number | null;
+            /** Mae Mw */
+            mae_mw: number | null;
+            /** Rmse Mw */
+            rmse_mw: number | null;
+            /** Bias Mw */
+            bias_mw: number | null;
+            /** Wape */
+            wape: number | null;
+            /**
+             * Median Forecast Age H
+             * @description Median hours between the forecast's publication and this cutoff.
+             */
+            median_forecast_age_h: number | null;
         };
         /** SlotAccuracy */
         SlotAccuracy: {
@@ -1465,6 +1544,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid parameters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No dataset loaded */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    cutoff_sensitivity_api_cutoff_sensitivity_get: {
+        parameters: {
+            query?: {
+                /** @description How 'January' is interpreted. `decision_date` (default) or `delivery_date`. */
+                basis?: components["schemas"]["Basis"] | null;
+                /** @description First date (inclusive), in the date type of `basis`. */
+                from?: string | null;
+                /** @description Last date (inclusive), in the date type of `basis`. */
+                to?: string | null;
+                /** @description Decision cutoff as 24h HH:MM Europe/London on the day before delivery. Defaults to the configured value (09:20). */
+                cutoff?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CutoffSensitivityResponse"];
                 };
             };
             /** @description Invalid parameters */

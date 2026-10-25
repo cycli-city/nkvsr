@@ -36,6 +36,41 @@ test.describe('Dashboard', () => {
     await expect(note).toContainText('interpolated')
   })
 
+  test('the decision-timing panel loads when scrolled to and shows how the cutoff moves the numbers', async ({
+    page,
+  }) => {
+    const errors = trackErrors(page)
+    await openDashboard(page)
+    const panel = page.locator('section[aria-labelledby="timing-h"]')
+    // Nothing is requested for it until the reader gets close.
+    await expect(panel.getByRole('table')).toHaveCount(0)
+    await panel.scrollIntoViewIfNeeded()
+    const table = panel.getByRole('table', {
+      name: /Accuracy of the forecast available at each decision cutoff/,
+    })
+    await expect(table).toBeVisible()
+    await expect(panel.locator('.recharts-bar-rectangle').first()).toBeVisible()
+    await expect(table.getByText('Yours', { exact: true })).toHaveCount(1)
+    await expect(table.getByText('09:20')).toBeVisible()
+    await expect(panel.getByTestId('sensitivity-reading')).toContainText('could not have informed the bid')
+    // Runs after the cutoff are labelled as hindsight, never as usable.
+    expect(await table.getByText('Hindsight only').count()).toBeGreaterThan(0)
+    expect(errors).toEqual([])
+  })
+
+  test('choosing another cutoff moves the "Yours" row and the reading follows', async ({ page }) => {
+    await openDashboard(page, '?cutoff=12:00')
+    const panel = page.locator('section[aria-labelledby="timing-h"]')
+    await panel.scrollIntoViewIfNeeded()
+    const table = panel.getByRole('table', {
+      name: /Accuracy of the forecast available at each decision cutoff/,
+    })
+    await expect(table.getByText('Yours', { exact: true })).toHaveCount(1)
+    const row = table.getByRole('row').filter({ has: page.getByText('Yours', { exact: true }) })
+    await expect(row).toContainText('12:00')
+    await expect(panel.getByTestId('sensitivity-reading')).toContainText('At your 12:00 cutoff')
+  })
+
   test('shows the cutoff rule and sign convention near the numbers', async ({ page }) => {
     await openDashboard(page)
     await expect(

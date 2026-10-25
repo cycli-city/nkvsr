@@ -1,6 +1,7 @@
 import type {
   Accuracy,
   AnalysisParams,
+  CutoffSensitivity,
   DecisionBrief,
   IntervalQuery,
   Intervals,
@@ -113,6 +114,8 @@ export const api = {
     getJson<Intervals>('/api/intervals', { ...analysisQuery(p), ...q }, signal),
   intervalsCsvUrl: (p: AnalysisParams, q: IntervalQuery) =>
     buildUrl('/api/intervals/export', { ...analysisQuery(p), ...q, page: undefined, page_size: undefined }),
+  cutoffSensitivity: (p: AnalysisParams, signal?: AbortSignal) =>
+    getJson<CutoffSensitivity>('/api/cutoff-sensitivity', analysisQuery(p), signal),
   vintages: (start: string, cutoff: string, signal?: AbortSignal) =>
     getJson<Vintages>('/api/forecast-vintages', { start, cutoff }, signal),
   decisionBrief: (decisionDate: string, cutoff: string, signal?: AbortSignal) =>
