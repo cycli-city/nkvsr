@@ -1,5 +1,11 @@
 # WindScope UK
 
+[![CI](https://github.com/cycli-city/nkvsr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cycli-city/nkvsr/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/cycli-city/nkvsr/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/cycli-city/nkvsr/actions/workflows/codeql.yml)
+
+**Live app: <https://windscope-uk-sand.vercel.app>** · API docs (Swagger): <https://windscope-api-5joc.onrender.com/api/docs> · how to run it locally: [§10](#10-local-installation--startup)
+(the API runs on a free tier and sleeps when idle, so the very first load can take up to a minute)
+
 **Day-ahead wind forecast analytics for GB power procurement.** For every half-hour of a delivery day it shows
 the national wind forecast a buyer could actually see at the day-ahead decision cutoff, and quantifies how
 accurate that forecast turned out to be, using only Elexon's FUELHH (actuals) and WINDFOR (forecasts) datasets.
