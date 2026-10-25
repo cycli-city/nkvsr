@@ -1,6 +1,6 @@
 # Acceptance test (UAT) against a deployed instance
 
-80 browser checks (plus 17 API checks) that drive **every control** of the deployed app in a real Chromium, the way a user would: the app shell,
+85 browser checks (plus 17 API checks) that drive **every control** of the deployed app in a real Chromium, the way a user would: the app shell,
 selection controls, KPI tiles, decision brief, timeline (hover, hindsight toggle, zoom, click-through), accuracy panel,
 decision-timing panel, Intervals explorer (every filter, sort, pagination, search, CSV download), Vintages, Methodology,
 API-failure recovery, phone and tablet layouts, and keyboard-only use; the API suite covers the endpoints, validation errors, CORS, the disabled admin endpoint, ETag/304 and security headers. They also fail on any console error, failed request or
@@ -28,4 +28,5 @@ Notes
 
 - `lib.cjs`: the shared harness (browser launch with console/network/CSP capture, `t()` check runner, helpers).
 - `suites/*.cjs`: one file per area, run in file-name order by `run-all.cjs`: app shell, selection controls, summary and brief, timeline, accuracy and timing, intervals explorer, vintages/methodology/errors, phone/tablet/keyboard, API checks.
+- `report.cjs`: turns the JSON results into the Markdown tables of the report (`node uat/report.cjs <results-dir>`).
 - Run a single suite with `node uat/suites/06-intervals-explorer.cjs`.

@@ -160,16 +160,22 @@ const { t, eq, ok, until, UI } = L
   )
 
   L.setSection('Z. Cleanliness')
-  await t('Z01', 'No console errors, failed requests, HTTP ≥ 400 or CSP violations in part 1', async () => {
-    const csp = await page.evaluate(() => window.__csp)
-    // B08 deliberately sends from > to; the API answers 422 and the UI explains it. That one request is expected.
-    const unexpected = problems.filter((p) => !/from=2026-01-20&to=2026-01-10|status of 422|http 422/.test(p))
-    ok(
-      unexpected.length === 0 && csp.length === 0,
-      `${unexpected.join(' | ')} ${csp.join(' | ')}`.slice(0, 400),
-    )
-    return `${problems.length} expected 422 lines from the deliberate invalid-range test`
-  })
+  await t(
+    'Z02',
+    'No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite',
+    async () => {
+      const csp = await page.evaluate(() => window.__csp)
+      // B08 deliberately sends from > to; the API answers 422 and the UI explains it. That one request is expected.
+      const unexpected = problems.filter(
+        (p) => !/from=2026-01-20&to=2026-01-10|status of 422|http 422/.test(p),
+      )
+      ok(
+        unexpected.length === 0 && csp.length === 0,
+        `${unexpected.join(' | ')} ${csp.join(' | ')}`.slice(0, 400),
+      )
+      return `${problems.length} expected 422 lines from the deliberate invalid-range test`
+    },
+  )
 
   await browser.close()
   L.report()

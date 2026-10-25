@@ -156,9 +156,12 @@ const fs = require('fs')
       ok(/2026-01-12 01:00/.test(await page.locator('tbody tr').first().innerText()), 'row text')
       await q.fill('Sat')
       await page.waitForURL(/q=Sat/)
-      await L.settle(page, 500)
-      const total = await page.getByText(/half-hours · delivery/).innerText()
-      ok(/(2\d\d|3\d\d)\s*half-hours/.test(total) || /\b\d{3}\b/.test(total), total)
+      // The previous search left "1 half-hours" on screen: wait for the new result instead of reading it too early.
+      let total = ''
+      await until(async () => {
+        total = await page.getByText(/half-hours · delivery/).innerText()
+        ok(/(?<![\d,])[23]\d\d\s*half-hours/.test(total), total)
+      }, 60000)
       await q.fill('zzzz')
       await page.getByRole('heading', { name: /No intervals match these filters/ }).waitFor()
       await page.getByRole('button', { name: 'Clear filters' }).first().click()
@@ -217,7 +220,7 @@ const fs = require('fs')
 
   L.setSection('Z. Cleanliness')
   await t(
-    'Z01',
+    'Z06',
     'No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite',
     async () => {
       const csp = await page.evaluate(() => window.__csp)
