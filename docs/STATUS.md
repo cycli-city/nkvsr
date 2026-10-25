@@ -9,7 +9,7 @@ _Update this file at the end of each work block. It is the first thing to read a
 | 1 Data/domain validation | **Partially blocked**: Elexon hosts denied by the sandbox egress policy. Domain assumptions written; `verify-upstream` tool built and unit-tested against a mock transport, **never run live**. |
 | 2 Plan/architecture/docs | Done (docs 00-08, DECISIONS) |
 | 3 Backend | **Done**: engine, ingestion, API, CLI. 252 tests, ruff + mypy strict clean. |
-| 4 Frontend | **Done**: dashboard, intervals, vintages, methodology. 68 Vitest + 39 Playwright/axe tests. |
+| 4 Frontend | **Done**: dashboard, intervals, vintages, methodology. 68 Vitest + 41 Playwright/axe tests. |
 | 5 Docker/CI/README | **Done** except real CI execution: images built, run, and Compose stack verified (on synthetic data); README complete. |
 | 6 QA + demo kit | QA largely done (browser-verified); `docs/08-DEMO-GUIDE.md` written. Final full re-run + delivery report pending. |
 | 7 Deploy + report | **Not done**: needs the user's Vercel/Render accounts; `docs/06-DEPLOYMENT.md` is the runbook. |
@@ -32,13 +32,13 @@ _Update this file at the end of each work block. It is the first thing to read a
 | Backend + frontend mutation checks | each deliberate bug caught (see `docs/07-TESTING.md`) |
 | `tsc --noEmit` (strict), `eslint`, `prettier --check` | clean |
 | `vitest run` | 68 passed |
-| `playwright test` (Chromium, production build, real API on synthetic data) | 39 passed (incl. axe WCAG 2.1 A/AA on 4 pages) |
+| `playwright test` (Chromium, production build, real API on synthetic data) | 41 passed (incl. axe WCAG 2.1 A/AA on 4 pages) |
 | Responsive overflow matrix | no horizontal overflow at 320/390/768/1024/1280/1440 px on any page |
 | `docker build` backend + web (sandbox-trust variant, see below) | built; API image 691 MB, web image 75 MB |
 | Containers: non-root, healthy; prod refuses synthetic; dev loads it | confirmed |
 | `docker compose up` (synthetic override, prebuilt images) | both services healthy; browser -> nginx -> API verified; deep links work |
 | YAML/JSON validation of CI, compose, render, heroku, vercel | valid |
-| **GitHub Actions, CI run 1 on `897a54e`** (<https://github.com/cycli-city/nkvsr/actions/runs/40208385324>) | Backend, Frontend, API-contract and Docker+Compose jobs **passed** on GitHub's runners. The Playwright job had passed its browser install and was still running its tests when this row was written; its result is added below once observed. |
+| **GitHub Actions, CI run 2 on `90c4fef`** (<https://github.com/cycli-city/nkvsr/actions/runs/40208562867>; run 1 was cancelled by the next push) | Backend, Frontend, API-contract and Docker+Compose jobs **passed** on GitHub's runners. The Playwright job **failed 1 of 39 tests**: `/intervals` overflowed a 320 px viewport by 1 px (the runner's fallback font is wider than the one used locally). Reproduced locally with DejaVu Sans; fixed in `IntervalsTable.tsx` (pager wraps); added 2 wide-font overflow tests (now 41); the new test fails without the fix. **Result of the CI re-run on the fix: pending, to be recorded.** |
 
 **NOT verified (cannot be from this sandbox):** anything involving the live Elexon API (real field names beyond the three
 in the brief, parameter names, units, forecast resolution/cadence/horizon, rate limits, whether Jan 2026 history exists);

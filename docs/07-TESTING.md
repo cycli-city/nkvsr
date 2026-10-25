@@ -9,7 +9,7 @@ Only things that were **actually run** are claimed. Counts are as of this commit
 | Backend domain & ingestion unit tests | pytest | 180 | time/DST maths, cutoff rule, vintage selection, matching, metric formulas, baselines (leakage), normalisation, retry/backoff, snapshot integrity, settings |
 | Backend API + integration | pytest + FastAPI TestClient | 72 (62 API + 10 ingestion e2e) | closed-form metrics through the API, validation & error envelope, CORS, empty/corrupt/synthetic-in-production states, admin guard, **mocked-Elexon → snapshot → API end-to-end**, failure keeps previous snapshot |
 | Frontend logic & integration | Vitest + Testing Library | 68 | UK-time formatting incl. BST/DST, URL state, API client + error mapping, whole-app flows against a typed mock API, chart-index helper |
-| End-to-end + accessibility | Playwright (Chromium) + axe-core | 39 | real browser vs real API + production build: drill-downs, interpretations, filters/sort/CSV, vintage invariants, API-down/slow/error/no-data, no horizontal overflow at 320–1280 px, keyboard use, WCAG 2.1 A/AA |
+| End-to-end + accessibility | Playwright (Chromium) + axe-core | 41 | real browser vs real API + production build: drill-downs, interpretations, filters/sort/CSV, vintage invariants, API-down/slow/error/no-data, no horizontal overflow at 320–1280 px, keyboard use, WCAG 2.1 A/AA |
 | Static quality | ruff · mypy `--strict` · ESLint · Prettier · `tsc --strict` | – | style, types, hooks rules, generated-API-type drift (CI `contract` job) |
 | Container smoke test | docker / compose | manual + CI `docker` job | image builds, non-root, health, nginx proxy, production-refuses-synthetic |
 
@@ -71,11 +71,13 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 | bind-mounted `./data` root-owned vs non-root container (could not write) | running the real **Compose** stack |
 | nginx `add_header` in a `location` silently dropped security headers | header check on every route type |
 | `.env.example` inline comment made Compose set `ADMIN_TOKEN` to the comment text (enabling the endpoint) | cross-parser check → `test_env_example.py` |
+| Intervals pager 1 px wider than a 320 px phone on GitHub's runner (passed locally: the app sets no font family, so the CI machine's wider fallback font exposed it) | **GitHub Actions** (first CI run), then reproduced locally with DejaVu Sans; now covered by the "wide fallback font" overflow tests |
 
 ## Not covered / not run — be honest about these
 
 * **The live Elexon API** (schema, parameters, units, history). Needs `make verify-upstream` on a connected machine.
-* **GitHub Actions**: the workflow first ran on GitHub for commit `897a54e` (run 1). The backend, frontend and API-contract jobs
-  were observed passing there; the results of the Docker and Playwright jobs are recorded in `docs/STATUS.md` once observed.
+* **GitHub Actions**: observed on GitHub for commit `90c4fef` (run 2): the backend, frontend, API-contract and Docker + Compose jobs
+  passed; the Playwright job failed one test (Intervals pager overflow at 320 px, see the defects table). The fix is committed
+  after that run; its CI result is recorded in `docs/STATUS.md` once observed.
 * Cross-browser (only Chromium), screen-reader testing with real assistive tech, load testing, and real cold-start timing on Render.
 * The Playwright suite runs against the synthetic snapshot, so it proves behaviour and invariants, not real-data results.

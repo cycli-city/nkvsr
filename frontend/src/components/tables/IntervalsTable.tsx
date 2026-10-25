@@ -222,7 +222,7 @@ export function Pagination({
         </strong>{' '}
         of <strong className="tabular-nums text-slate-900">{fmtNumber(total)}</strong>
       </p>
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <label className="flex items-center gap-2 text-xs">
           Rows per page
           <select
@@ -244,7 +244,7 @@ export function Pagination({
           >
             ← Previous
           </button>
-          <span className="px-2 tabular-nums">
+          <span className="whitespace-nowrap px-2 tabular-nums">
             Page {page} of {totalPages}
           </span>
           <button

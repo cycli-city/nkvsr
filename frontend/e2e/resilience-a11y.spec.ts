@@ -74,10 +74,12 @@ test.describe('Resilience', () => {
 })
 
 test.describe('Responsive layout', () => {
+  const PAGES = ['/', '/intervals', '/vintages?start=2026-01-15T08:30:00Z', '/methodology']
+
   for (const width of [320, 390, 768, 1280]) {
     test(`no horizontal page overflow at ${width}px on any page`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 })
-      for (const path of ['/', '/intervals', '/vintages?start=2026-01-15T08:30:00Z', '/methodology']) {
+      for (const path of PAGES) {
         await page.goto(path)
         await expect(page.locator('main')).toBeVisible()
         await page.waitForLoadState('networkidle')
@@ -86,6 +88,29 @@ test.describe('Responsive layout', () => {
           document.documentElement.clientWidth,
         ])
         expect(scroll, `${path} overflows at ${width}px`).toBeLessThanOrEqual(client)
+      }
+    })
+  }
+
+  // The app sets no font family, so each device falls back to its own system font. A layout that only fits
+  // the narrow glyphs of one machine's font overflows on another (this caught the Intervals pager on CI,
+  // whose fallback font is wider than the one used during development). Force a wide font so the check
+  // does not depend on which fonts the test machine happens to have.
+  for (const width of [320, 390]) {
+    test(`no horizontal page overflow at ${width}px with a wide fallback font`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      for (const path of PAGES) {
+        await page.goto(path)
+        await expect(page.locator('main')).toBeVisible()
+        await page.waitForLoadState('networkidle')
+        await page.addStyleTag({
+          content: '*{font-family:"DejaVu Sans",Verdana,sans-serif !important}',
+        })
+        const [scroll, client] = await page.evaluate(() => [
+          document.documentElement.scrollWidth,
+          document.documentElement.clientWidth,
+        ])
+        expect(scroll, `${path} overflows at ${width}px (wide font)`).toBeLessThanOrEqual(client)
       }
     })
   }

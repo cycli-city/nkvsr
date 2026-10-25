@@ -301,7 +301,7 @@ What has **actually been run and observed** (not just written):
 | Backend: `ruff`, `ruff format --check`, `mypy --strict` | ✅ clean |
 | Backend mutation checks (cutoff `<=`, `backward`, error sign, baseline lag) | ✅ each caught by tests |
 | Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 68 passing |
-| Frontend: Playwright E2E + axe (Chromium, production build, real API) | ✅ 39 passing |
+| Frontend: Playwright E2E + axe (Chromium, production build, real API) | ✅ 41 passing |
 | Docker: API and web images build; run non-root; healthy; production refuses synthetic data | ✅ |
 | Docker Compose stack: service discovery, health-gated start, browser → nginx → API | ✅ (run on synthetic data) |
 | **Live Elexon API: schema, parameters, units, history coverage** | ❌ **not possible from the build sandbox: run `make verify-upstream`** |
