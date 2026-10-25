@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.metrics import DataStatusName
 from app.domain.windows import Basis
@@ -19,13 +19,24 @@ MatchStatus = Literal["matched", "missing_forecast", "missing_actual", "missing_
 Provenance = Literal["elexon_live", "synthetic_dev"]
 
 
-class ErrorBody(BaseModel):
+class ApiModel(BaseModel):
+    """Base for every response model.
+
+    ``json_schema_serialization_defaults_required`` makes fields that have defaults (e.g. empty lists,
+    ``None``) *required* in the OpenAPI output schema. The API always sends them, and the generated
+    TypeScript types are then accurate instead of forcing needless optional-chaining in the UI.
+    """
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
+class ErrorBody(ApiModel):
     code: str
     message: str
     details: Any | None = None
 
 
-class ErrorResponse(BaseModel):
+class ErrorResponse(ApiModel):
     error: ErrorBody
 
 
@@ -34,7 +45,7 @@ class ErrorResponse(BaseModel):
 # ---------------------------------------------------------------------------------------------------
 
 
-class ProvenanceOut(BaseModel):
+class ProvenanceOut(ApiModel):
     provenance: Provenance
     is_synthetic: bool = Field(
         description="True only for the development fixture; never for Elexon data."
@@ -47,7 +58,7 @@ class ProvenanceOut(BaseModel):
     attribution: str
 
 
-class AnalysisEcho(BaseModel):
+class AnalysisEcho(ApiModel):
     """The exact interpretation a response was computed under (never mixed across bases)."""
 
     basis: Basis
@@ -66,7 +77,7 @@ class AnalysisEcho(BaseModel):
     unit: str = "MW"
 
 
-class MetricsOut(BaseModel):
+class MetricsOut(ApiModel):
     n: int = Field(description="Number of valid matched half-hourly observations.")
     mae_mw: float | None
     rmse_mw: float | None
@@ -78,7 +89,7 @@ class MetricsOut(BaseModel):
     mean_actual_mw: float | None
 
 
-class CoverageOut(BaseModel):
+class CoverageOut(ApiModel):
     expected: int
     matched: int
     missing_forecast: int
@@ -87,14 +98,14 @@ class CoverageOut(BaseModel):
     coverage: float | None
 
 
-class DataStatusOut(BaseModel):
+class DataStatusOut(ApiModel):
     status: DataStatusName
     message: str
     sufficient_threshold: float
     partial_threshold: float
 
 
-class ErrorDistributionOut(BaseModel):
+class ErrorDistributionOut(ApiModel):
     n: int
     n_over: int
     n_under: int
@@ -115,7 +126,7 @@ class ErrorDistributionOut(BaseModel):
     abs_p95_mw: float | None
 
 
-class BaselineOut(BaseModel):
+class BaselineOut(ApiModel):
     key: Literal["persistence", "trailing_mean"]
     label: str
     description: str
@@ -129,7 +140,7 @@ class BaselineOut(BaseModel):
     )
 
 
-class HindsightOut(BaseModel):
+class HindsightOut(ApiModel):
     """Latest-published forecast (includes revisions after the cutoff). Context only - never used in KPIs."""
 
     n: int
@@ -138,7 +149,7 @@ class HindsightOut(BaseModel):
     note: str
 
 
-class ForecastAgeOut(BaseModel):
+class ForecastAgeOut(ApiModel):
     median_h: float | None
     p95_h: float | None
     max_h: float | None
@@ -146,7 +157,7 @@ class ForecastAgeOut(BaseModel):
     n_stale: int
 
 
-class IntervalRow(BaseModel):
+class IntervalRow(ApiModel):
     start_time: datetime = Field(description="Delivery interval start (UTC).")
     delivery_date: date
     local_label: str = Field(description="Local delivery time, 'YYYY-MM-DD HH:MM' (Europe/London).")
@@ -169,20 +180,20 @@ class IntervalRow(BaseModel):
 # ---------------------------------------------------------------------------------------------------
 
 
-class HealthResponse(BaseModel):
+class HealthResponse(ApiModel):
     status: Literal["ok"] = "ok"
     version: str
     data_loaded: bool
 
 
-class SourceLink(BaseModel):
+class SourceLink(ApiModel):
     code: str
     endpoint: str
     documentation_url: str
     query_parameters: dict[str, str]
 
 
-class BasisInfo(BaseModel):
+class BasisInfo(ApiModel):
     id: Basis
     label: str
     description: str
@@ -193,27 +204,27 @@ class BasisInfo(BaseModel):
     default_to: date
 
 
-class CutoffPreset(BaseModel):
+class CutoffPreset(ApiModel):
     value: str
     label: str
     note: str
 
 
-class RefreshOut(BaseModel):
+class RefreshOut(ApiModel):
     status: Literal["never", "running", "ok", "failed"]
     last_attempt_at: datetime | None
     last_success_at: datetime | None
     error: str | None
 
 
-class Thresholds(BaseModel):
+class Thresholds(ApiModel):
     coverage_sufficient: float
     coverage_partial: float
     stale_forecast_hours: float
     max_range_days: int
 
 
-class MetadataResponse(BaseModel):
+class MetadataResponse(ApiModel):
     app_version: str
     data_available: bool
     load_error: str | None = None
@@ -236,7 +247,7 @@ class MetadataResponse(BaseModel):
     unit: str
 
 
-class SummaryResponse(BaseModel):
+class SummaryResponse(ApiModel):
     analysis: AnalysisEcho
     provenance: ProvenanceOut
     data_status: DataStatusOut
@@ -248,7 +259,7 @@ class SummaryResponse(BaseModel):
     forecast_age: ForecastAgeOut
 
 
-class TimeSeriesPoint(BaseModel):
+class TimeSeriesPoint(ApiModel):
     start_time: datetime
     delivery_date: date
     settlement_period: int
@@ -261,13 +272,13 @@ class TimeSeriesPoint(BaseModel):
     match_status: MatchStatus
 
 
-class TimeSeriesResponse(BaseModel):
+class TimeSeriesResponse(ApiModel):
     analysis: AnalysisEcho
     provenance: ProvenanceOut
     points: list[TimeSeriesPoint]
 
 
-class GroupAccuracy(BaseModel):
+class GroupAccuracy(ApiModel):
     expected: int
     n: int
     coverage: float | None
@@ -294,18 +305,18 @@ class DaypartAccuracy(GroupAccuracy):
     definition: str
 
 
-class HistogramBin(BaseModel):
+class HistogramBin(ApiModel):
     lower_mw: float
     upper_mw: float
     count: int
 
 
-class HistogramOut(BaseModel):
+class HistogramOut(ApiModel):
     bin_width_mw: float | None
     bins: list[HistogramBin]
 
 
-class AccuracyResponse(BaseModel):
+class AccuracyResponse(ApiModel):
     analysis: AnalysisEcho
     provenance: ProvenanceOut
     coverage: CoverageOut
@@ -318,7 +329,7 @@ class AccuracyResponse(BaseModel):
     largest_errors: list[IntervalRow]
 
 
-class IntervalsResponse(BaseModel):
+class IntervalsResponse(ApiModel):
     analysis: AnalysisEcho
     provenance: ProvenanceOut
     total: int
@@ -328,7 +339,7 @@ class IntervalsResponse(BaseModel):
     items: list[IntervalRow]
 
 
-class VintageRow(BaseModel):
+class VintageRow(ApiModel):
     publish_time: datetime
     forecast_mw: float
     lead_time_h: float = Field(description="Delivery start minus publication time.")
@@ -341,7 +352,7 @@ class VintageRow(BaseModel):
     )
 
 
-class VintagesResponse(BaseModel):
+class VintagesResponse(ApiModel):
     provenance: ProvenanceOut
     start_time: datetime
     local_label: str
@@ -360,7 +371,7 @@ class VintagesResponse(BaseModel):
     )
 
 
-class BriefPoint(BaseModel):
+class BriefPoint(ApiModel):
     start_time: datetime
     slot: str
     forecast_mw: float | None
@@ -369,7 +380,7 @@ class BriefPoint(BaseModel):
     error_mw: float | None
 
 
-class ForecastSetSummary(BaseModel):
+class ForecastSetSummary(ApiModel):
     n_intervals: int
     n_with_forecast: int
     distinct_publications: int
@@ -385,7 +396,7 @@ class ForecastSetSummary(BaseModel):
     )
 
 
-class BriefHindsight(BaseModel):
+class BriefHindsight(ApiModel):
     n_matched: int
     mean_actual_mw: float | None
     mae_mw: float | None
@@ -396,7 +407,7 @@ class BriefHindsight(BaseModel):
     note: str
 
 
-class DecisionBriefResponse(BaseModel):
+class DecisionBriefResponse(ApiModel):
     provenance: ProvenanceOut
     decision_date: date
     delivery_date: date
@@ -407,7 +418,7 @@ class DecisionBriefResponse(BaseModel):
     points: list[BriefPoint]
 
 
-class RefreshResponse(BaseModel):
+class RefreshResponse(ApiModel):
     status: Literal["ok"]
     retrieved_at: datetime
     actuals_rows: int

@@ -16,6 +16,12 @@ _Update this file at the end of each work block. It is the first thing to read a
 
 ## Open blockers needing the user
 
+0. **`git push` is denied (HTTP 403)** — "Claude doesn't have GitHub access to cycli-city/nkvsr". Reads work
+   (`git ls-remote`, GitHub MCP), writes do not. Fix: install the Claude GitHub App on the repository
+   (<https://github.com/apps/claude/installations/select_target>) or reconnect GitHub at
+   <https://claude.ai/customize/connectors?auth_start=github&auth_start_force=1>. Until then all work is committed
+   locally on `claude/zen-bohr-nfa0ly` only (remote has just `main`). A `git bundle` backup is produced at milestones.
+
 1. **Elexon access** — allow `data.elexon.co.uk` (and ideally `bmrs.elexon.co.uk`) in the environment's
    Network access settings, *or* run `make verify-upstream && make ingest` locally and commit
    `data/snapshots/current/`.
