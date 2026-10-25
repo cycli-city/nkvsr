@@ -17,11 +17,13 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
+from app.api.middleware import RateLimitMiddleware, ResponseCacheMiddleware
 from app.api.routes import analysis, system
 from app.config import Settings, get_settings
 from app.errors import AppError, IngestionError, UpstreamError
 from app.services.analysis import AnalysisService
 from app.services.ingestion import IngestionService
+from app.services.prewarm import prewarm
 from app.store.dataset import DataStore
 
 logger = logging.getLogger("windscope")
@@ -34,6 +36,31 @@ Day-ahead **wind forecast analytics** for GB power procurement (Elexon FUELHH / 
 * Metrics that cannot be defined are `null` ("unavailable"), never zero.
 * Wind forecast error is **not** the utility's net procurement requirement.
 """
+
+
+# Endpoints whose body is a pure function of (snapshot, query string): safe to cache and to answer with 304.
+CACHEABLE_PATHS = (
+    "/api/summary",
+    "/api/timeseries",
+    "/api/accuracy",
+    "/api/intervals",
+    "/api/intervals/export",
+    "/api/forecast-vintages",
+    "/api/decision-brief",
+    "/api/cutoff-sensitivity",
+)
+
+# Defence in depth for a JSON API: nothing it returns should ever be rendered, framed or sniffed.
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+}
+API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+DOCS_PATH = "/api/docs"  # Swagger UI is HTML that loads scripts from a CDN, so it is exempt from the strict CSP
+HSTS = "max-age=31536000"
 
 
 def _envelope(code: str, message: str, details: Any | None = None) -> dict[str, Any]:
@@ -50,13 +77,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         store: DataStore = app.state.store
         store.load_from_disk()
-        background: asyncio.Task[Any] | None = None
+        background: list[asyncio.Task[Any]] = []
         if store.maybe_get() is None and settings.auto_ingest_on_start:
             logger.info("No snapshot found; starting background ingestion (AUTO_INGEST_ON_START)")
-            background = asyncio.create_task(_safe_ingest(app.state.ingestion))
+            background.append(asyncio.create_task(_safe_ingest(app.state.ingestion)))
+        elif store.maybe_get() is not None and settings.prewarm_on_start:
+            background.append(asyncio.create_task(_safe_prewarm(app)))
         yield
-        if background and not background.done():
-            background.cancel()
+        for task in background:
+            if not task.done():
+                task.cancel()
 
     app = FastAPI(
         title="WindScope UK API",
@@ -73,7 +103,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.service = AnalysisService(store, settings)
     app.state.ingestion = IngestionService(settings, store)
 
+    # Starlette puts the LAST added middleware OUTERMOST. Request path: access log -> CORS -> rate limit ->
+    # response cache -> gzip -> routes. CORS wraps the limiter and the cache so that 429, 304 and cached
+    # responses all carry the right Access-Control-* headers for the asking origin (the cache never stores them).
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+    app.add_middleware(
+        ResponseCacheMiddleware,
+        version=app.state.service.cache_version,
+        paths=CACHEABLE_PATHS,
+        max_age_seconds=settings.browser_cache_seconds,
+    )
+    app.add_middleware(RateLimitMiddleware, per_minute=settings.rate_limit_per_minute)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -89,7 +129,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ) -> Response:
         started = time.perf_counter()
         response = await call_next(request)
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        if request.url.path != DOCS_PATH:
+            response.headers.setdefault("Content-Security-Policy", API_CSP)
+        if request.headers.get("x-forwarded-proto", request.url.scheme) == "https":
+            response.headers.setdefault("Strict-Transport-Security", HSTS)
         logger.info(
             "%s %s -> %d (%.0f ms)",
             request.method,
@@ -139,6 +184,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(system.router)
     app.include_router(analysis.router)
     return app
+
+
+async def _safe_prewarm(app: FastAPI) -> None:
+    try:
+        await prewarm(app)
+    except Exception as exc:  # an optimisation only; never let it affect start-up
+        logger.warning("Pre-warm failed: %s", exc)
 
 
 async def _safe_ingest(ingestion: IngestionService) -> None:

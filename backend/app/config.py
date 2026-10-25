@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     auto_ingest_on_start: bool = False  # ingest in the background when no snapshot exists
     admin_token: str | None = None  # enables POST /api/admin/refresh when set
 
+    # --- performance and abuse protection --------------------------------------------------------
+    # Requests per minute allowed per client before HTTP 429 (0 disables). Health checks are exempt.
+    rate_limit_per_minute: int = Field(default=300, ge=0, le=100_000)
+    # How long browsers may reuse an analytics response without asking (responses also carry an ETag).
+    browser_cache_seconds: int = Field(default=300, ge=0, le=86_400)
+    # Compute the default dashboard views in the background at start-up so the first visitor is not slow.
+    prewarm_on_start: bool = True
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

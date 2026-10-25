@@ -1,0 +1,318 @@
+"""Rate limiter and response cache, in isolation, against a minimal ASGI app that counts how often it runs."""
+
+import json
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+import anyio
+import pytest
+from starlette.types import Message, Receive, Scope, Send
+
+from app.api.middleware import RateLimitMiddleware, ResponseCacheMiddleware, client_key
+
+BODY = b'{"ok": true}'
+
+
+class CountingApp:
+    """Returns a fixed JSON body (or a given status) and records how many times it was called."""
+
+    def __init__(self, status: int = 200, body: bytes = BODY) -> None:
+        self.calls = 0
+        self.status = status
+        self.body = body
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        self.calls += 1
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self.status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(self.body)).encode()),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": self.body})
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+async def call(
+    app: Callable[[Scope, Receive, Send], Awaitable[None]],
+    path: str = "/api/summary",
+    *,
+    method: str = "GET",
+    query: str = "",
+    headers: dict[str, str] | None = None,
+    client: tuple[str, int] | None = ("10.0.0.1", 1234),
+) -> tuple[int, dict[str, str], bytes]:
+    scope: Scope = {
+        "type": "http",
+        "method": method,
+        "path": path,
+        "query_string": query.encode(),
+        "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
+        "client": client,
+    }
+    sent: list[Message] = []
+
+    async def receive() -> Message:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    await app(scope, receive, send)
+    start = next(m for m in sent if m["type"] == "http.response.start")
+    body = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    headers_out = {k.decode(): v.decode() for k, v in start.get("headers", [])}
+    return int(start["status"]), headers_out, body
+
+
+def run(coro: Awaitable[Any]) -> Any:
+    async def runner() -> Any:
+        return await coro
+
+    return anyio.run(runner)
+
+
+# --- rate limiting -------------------------------------------------------------------------------------
+
+
+class TestRateLimit:
+    def limiter(self, **kw: Any) -> tuple[RateLimitMiddleware, CountingApp, Clock]:
+        clock = Clock()
+        inner = CountingApp()
+        mw = RateLimitMiddleware(inner, clock=clock, **{"per_minute": 60, "burst": 3, **kw})
+        return mw, inner, clock
+
+    def test_allows_a_burst_then_answers_429_with_a_json_envelope_and_retry_after(self) -> None:
+        mw, inner, _ = self.limiter()
+        codes = [run(call(mw))[0] for _ in range(5)]
+        assert codes == [200, 200, 200, 429, 429]
+        status, headers, body = run(call(mw))
+        assert status == 429
+        assert int(headers["retry-after"]) >= 1
+        assert headers["cache-control"] == "no-store"
+        assert json.loads(body)["error"]["code"] == "rate_limited"
+        assert inner.calls == 3  # the application never ran for rejected requests
+
+    def test_tokens_refill_over_time(self) -> None:
+        mw, _, clock = self.limiter()  # 60 per minute = 1 token per second
+        for _ in range(3):
+            run(call(mw))
+        assert run(call(mw))[0] == 429
+        clock.now += 1.0
+        assert run(call(mw))[0] == 200
+        assert run(call(mw))[0] == 429
+
+    def test_clients_have_separate_budgets(self) -> None:
+        mw, _, _ = self.limiter()
+        for _ in range(3):
+            assert run(call(mw, headers={"X-Forwarded-For": "203.0.113.5"}))[0] == 200
+        assert run(call(mw, headers={"X-Forwarded-For": "203.0.113.5"}))[0] == 429
+        assert run(call(mw, headers={"X-Forwarded-For": "203.0.113.6"}))[0] == 200
+
+    def test_the_first_forwarded_hop_identifies_the_client(self) -> None:
+        scope: Scope = {
+            "type": "http",
+            "headers": [(b"x-forwarded-for", b" 198.51.100.7 , 10.1.1.1")],
+            "client": ("10.9.9.9", 1),
+        }
+        assert client_key(scope) == "198.51.100.7"
+        assert (
+            client_key({"type": "http", "headers": [], "client": ("192.0.2.1", 1)}) == "192.0.2.1"
+        )
+        assert client_key({"type": "http", "headers": [], "client": None}) == "unknown"
+
+    def test_health_checks_and_preflights_are_never_limited(self) -> None:
+        mw, _, _ = self.limiter(burst=1)
+        run(call(mw))  # spends the only token
+        assert [run(call(mw, "/api/health"))[0] for _ in range(5)] == [200] * 5
+        assert [run(call(mw, method="OPTIONS"))[0] for _ in range(5)] == [200] * 5
+
+    def test_zero_disables_the_limiter(self) -> None:
+        mw, inner, _ = self.limiter(per_minute=0)
+        assert [run(call(mw))[0] for _ in range(50)] == [200] * 50
+        assert inner.calls == 50
+
+    def test_memory_is_bounded_and_oversized_keys_are_truncated(self) -> None:
+        mw, _, _ = self.limiter(max_clients=3)
+        for i in range(10):
+            run(call(mw, headers={"X-Forwarded-For": f"198.51.100.{i}"}))
+        assert len(mw._buckets) == 3
+        long_ip = "9" * 5000
+        assert (
+            len(client_key({"type": "http", "headers": [(b"x-forwarded-for", long_ip.encode())]}))
+            <= 64
+        )
+
+
+# --- response cache ----------------------------------------------------------------------------------------------
+
+
+class TestResponseCache:
+    def cache(
+        self, inner: CountingApp | None = None, *, version: str | None = "v1", **kw: Any
+    ) -> tuple[ResponseCacheMiddleware, CountingApp, dict[str, str | None]]:
+        state: dict[str, str | None] = {"version": version}
+        inner = inner or CountingApp()
+        mw = ResponseCacheMiddleware(
+            inner, version=lambda: state["version"], paths=["/api/summary", "/api/other"], **kw
+        )
+        return mw, inner, state
+
+    def test_second_identical_request_is_served_from_the_cache(self) -> None:
+        mw, inner, _ = self.cache()
+        first = run(call(mw, query="basis=x&from=1"))
+        second = run(call(mw, query="basis=x&from=1"))
+        assert first[2] == second[2] == BODY
+        assert first[1]["x-cache"] == "MISS" and second[1]["x-cache"] == "HIT"
+        assert inner.calls == 1
+        assert second[1]["etag"] == first[1]["etag"]
+        assert second[1]["cache-control"] == "public, max-age=300"
+
+    def test_query_parameter_order_does_not_matter_but_values_do(self) -> None:
+        mw, inner, _ = self.cache()
+        run(call(mw, query="a=1&b=2"))
+        assert run(call(mw, query="b=2&a=1"))[1]["x-cache"] == "HIT"
+        assert run(call(mw, query="a=1&b=3"))[1]["x-cache"] == "MISS"
+        assert inner.calls == 2
+
+    def test_a_matching_etag_gets_304_without_running_the_application(self) -> None:
+        mw, inner, _ = self.cache()
+        etag = run(call(mw, query="a=1"))[1]["etag"]
+        calls_before = inner.calls
+        status, headers, body = run(call(mw, query="a=1", headers={"If-None-Match": etag}))
+        assert (status, body) == (304, b"")
+        assert headers["etag"] == etag and inner.calls == calls_before
+        # Works even before this process has computed that exact request: the key alone proves the content.
+        mw2, inner2, _ = self.cache()
+        assert run(call(mw2, query="a=1", headers={"If-None-Match": etag}))[0] == 304
+        assert inner2.calls == 0
+
+    def test_a_stale_or_foreign_etag_gets_a_full_response(self) -> None:
+        mw, _, _ = self.cache()
+        assert run(call(mw, headers={"If-None-Match": 'W/"nope"'}))[0] == 200
+
+    def test_if_none_match_accepts_lists_wildcards_and_weak_prefixes(self) -> None:
+        mw, _, _ = self.cache()
+        etag = run(call(mw))[1]["etag"]
+        strong = etag.removeprefix("W/")
+        for value in (f'"x", {etag}', strong, "*"):
+            assert run(call(mw, headers={"If-None-Match": value}))[0] == 304
+
+    def test_a_new_snapshot_version_invalidates_everything(self) -> None:
+        mw, inner, state = self.cache()
+        old = run(call(mw))[1]["etag"]
+        state["version"] = "v2"
+        status, headers, _ = run(call(mw, headers={"If-None-Match": old}))
+        assert status == 200 and headers["x-cache"] == "MISS" and headers["etag"] != old
+        assert inner.calls == 2
+
+    def test_nothing_is_cached_or_short_circuited_without_a_dataset(self) -> None:
+        mw, inner, _ = self.cache(version=None)
+        run(call(mw))
+        assert run(call(mw, headers={"If-None-Match": "*"}))[0] == 200
+        assert inner.calls == 2
+
+    def test_errors_are_never_cached_and_are_marked_no_store(self) -> None:
+        mw, inner, _ = self.cache(CountingApp(status=422, body=b'{"error": {}}'))
+        for _ in range(2):
+            status, headers, _ = run(call(mw))
+            assert (
+                status == 422 and headers["cache-control"] == "no-store" and "etag" not in headers
+            )
+        assert inner.calls == 2
+
+    def test_only_listed_get_requests_are_cached(self) -> None:
+        mw, inner, _ = self.cache()
+        for _ in range(2):
+            assert "x-cache" not in run(call(mw, "/api/metadata"))[1]
+            assert "x-cache" not in run(call(mw, method="POST"))[1]
+        assert inner.calls == 4
+
+    def test_gzip_and_identity_clients_have_separate_entries(self) -> None:
+        mw, inner, _ = self.cache()
+        run(call(mw, headers={"Accept-Encoding": "gzip, deflate, br"}))
+        assert run(call(mw, headers={"Accept-Encoding": "identity"}))[1]["x-cache"] == "MISS"
+        assert run(call(mw, headers={"Accept-Encoding": "br, gzip;q=0.9"}))[1]["x-cache"] == "HIT"
+        assert inner.calls == 2
+
+    def test_upstream_cache_headers_are_replaced_not_duplicated(self) -> None:
+        class Opinionated(CountingApp):
+            async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+                await send(
+                    {
+                        "type": "http.response.start",
+                        "status": 200,
+                        "headers": [(b"cache-control", b"private"), (b"etag", b'"app"')],
+                    }
+                )
+                await send({"type": "http.response.body", "body": b"x"})
+
+        mw, _, _ = self.cache(Opinionated())
+        _, headers, _ = run(call(mw))
+        assert headers["cache-control"] == "public, max-age=300" and headers["etag"].startswith(
+            'W/"'
+        )
+
+    def test_entry_count_and_byte_budgets_evict_the_least_recently_used(self) -> None:
+        mw, _inner, _ = self.cache(max_entries=2)
+        for q in ("a=1", "a=2"):
+            run(call(mw, query=q))
+        run(call(mw, query="a=1"))  # touch: a=2 becomes the oldest
+        run(call(mw, query="a=3"))  # evicts a=2
+        assert run(call(mw, query="a=1"))[1]["x-cache"] == "HIT"
+        assert run(call(mw, query="a=2"))[1]["x-cache"] == "MISS"
+        small, _, _ = self.cache(max_bytes=len(BODY) * 2)
+        for q in ("a=1", "a=2", "a=3"):
+            run(call(small, query=q))
+        entries, size = small.size
+        assert entries == 2 and size <= len(BODY) * 2
+
+    def test_oversized_bodies_are_passed_through_but_not_stored(self) -> None:
+        mw, inner, _ = self.cache(CountingApp(body=b"x" * 100), max_entry_bytes=50)
+        assert run(call(mw))[1]["x-cache"] == "MISS"
+        assert run(call(mw))[1]["x-cache"] == "MISS"
+        assert inner.calls == 2 and mw.size == (0, 0)
+
+    def test_browser_caching_can_be_turned_off_while_keeping_revalidation(self) -> None:
+        mw, _, _ = self.cache(max_age_seconds=0)
+        headers = run(call(mw))[1]
+        assert headers["cache-control"] == "no-cache" and "etag" in headers
+
+    def test_a_streamed_body_is_reassembled_into_one_entry(self) -> None:
+        class Streaming(CountingApp):
+            async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+                self.calls += 1
+                await send({"type": "http.response.start", "status": 200, "headers": []})
+                for chunk in (b"ab", b"cd", b"ef"):
+                    await send({"type": "http.response.body", "body": chunk, "more_body": True})
+                await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+        mw, inner, _ = self.cache(Streaming())
+        run(call(mw))
+        status, _, body = run(call(mw))
+        assert (status, body) == (200, b"abcdef") and inner.calls == 1
+
+
+@pytest.mark.parametrize("value", ["gzip", "GZIP", "deflate, gzip;q=0.5", " br , gzip "])
+def test_gzip_detection(value: str) -> None:
+    from app.api.middleware import _accepts_gzip
+
+    assert _accepts_gzip(value)
+
+
+@pytest.mark.parametrize("value", ["", "identity", "br", "x-gzip-not"])
+def test_gzip_detection_negative(value: str) -> None:
+    from app.api.middleware import _accepts_gzip
+
+    assert not _accepts_gzip(value)

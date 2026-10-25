@@ -40,6 +40,8 @@ def make_settings(tmp_path: Path, **overrides: object) -> Settings:
         "app_env": "test",
         "data_dir": tmp_path,
         "cors_origins": ["http://localhost:5173"],
+        "prewarm_on_start": False,  # background work would make unrelated tests nondeterministic
+        "rate_limit_per_minute": 0,  # tests make bursts of requests from one client
     }
     base.update(overrides)
     return Settings(**base)  # type: ignore[arg-type]
