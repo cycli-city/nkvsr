@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import {
   Brush,
   CartesianGrid,
@@ -78,83 +78,97 @@ export function TimelineChart({
     [points, showLatest],
   )
 
+  // Dragging a zoom handle and letting go over the plot is reported by the browser as a click on the chart, which
+  // would open the vintages page instead of zooming. Remember whether the press started on the zoom control.
+  const startedOnZoom = useRef(false)
+
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart
-        data={data}
-        margin={MARGIN}
-        onClick={(state) => {
-          const index = activeIndexOf(state)
-          const point = index !== undefined ? data[index] : undefined
-          if (point && onSelect) onSelect(point)
-        }}
-        style={{ cursor: onSelect ? 'pointer' : undefined }}
-      >
-        <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" vertical={false} />
-        <XAxis
-          dataKey="t"
-          type="number"
-          scale="time"
-          domain={['dataMin', 'dataMax']}
-          tickFormatter={tick}
-          tick={AXIS_TICK}
-          axisLine={{ stroke: COLORS.axisLine }}
-          tickLine={false}
-          minTickGap={36}
-        />
-        <YAxis
-          domain={[0, yTicks[yTicks.length - 1] ?? 'auto']}
-          ticks={yTicks}
-          tickFormatter={mwTick}
-          tick={AXIS_TICK}
-          axisLine={false}
-          tickLine={false}
-          width={56}
-          label={{ value: 'MW', angle: -90, position: 'insideLeft', fill: COLORS.axis, fontSize: 11 }}
-        />
-        <Tooltip content={Tip} isAnimationActive={false} />
-        {showLatest && (
+    <div
+      onPointerDownCapture={(e) => {
+        startedOnZoom.current = e.target instanceof Element && e.target.closest('.recharts-brush') !== null
+      }}
+    >
+      <ResponsiveContainer width="100%" height={height}>
+        <ComposedChart
+          data={data}
+          margin={MARGIN}
+          onClick={(state) => {
+            if (startedOnZoom.current) {
+              startedOnZoom.current = false
+              return
+            }
+            const index = activeIndexOf(state)
+            const point = index !== undefined ? data[index] : undefined
+            if (point && onSelect) onSelect(point)
+          }}
+          style={{ cursor: onSelect ? 'pointer' : undefined }}
+        >
+          <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="t"
+            type="number"
+            scale="time"
+            domain={['dataMin', 'dataMax']}
+            tickFormatter={tick}
+            tick={AXIS_TICK}
+            axisLine={{ stroke: COLORS.axisLine }}
+            tickLine={false}
+            minTickGap={36}
+          />
+          <YAxis
+            domain={[0, yTicks[yTicks.length - 1] ?? 'auto']}
+            ticks={yTicks}
+            tickFormatter={mwTick}
+            tick={AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            width={56}
+            label={{ value: 'MW', angle: -90, position: 'insideLeft', fill: COLORS.axis, fontSize: 11 }}
+          />
+          <Tooltip content={Tip} isAnimationActive={false} />
+          {showLatest && (
+            <Line
+              type="monotone"
+              dataKey="latest_forecast_mw"
+              name="Latest published forecast (hindsight)"
+              stroke={COLORS.hindsight}
+              strokeWidth={1.25}
+              strokeDasharray="4 3"
+              dot={false}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
           <Line
             type="monotone"
-            dataKey="latest_forecast_mw"
-            name="Latest published forecast (hindsight)"
-            stroke={COLORS.hindsight}
-            strokeWidth={1.25}
-            strokeDasharray="4 3"
+            dataKey="actual_mw"
+            name="Actual"
+            stroke={COLORS.actual}
+            strokeWidth={1.75}
             dot={false}
-            activeDot={false}
             isAnimationActive={false}
           />
-        )}
-        <Line
-          type="monotone"
-          dataKey="actual_mw"
-          name="Actual"
-          stroke={COLORS.actual}
-          strokeWidth={1.75}
-          dot={false}
-          isAnimationActive={false}
-        />
-        <Line
-          type="monotone"
-          dataKey="forecast_mw"
-          name="Forecast at cutoff"
-          stroke={COLORS.forecast}
-          strokeWidth={1.75}
-          dot={false}
-          isAnimationActive={false}
-        />
-        {data.length > 96 && (
-          <Brush
-            dataKey="t"
-            height={26}
-            travellerWidth={8}
-            stroke={COLORS.axis}
-            tickFormatter={tick}
-            fill="#f8fafc"
+          <Line
+            type="monotone"
+            dataKey="forecast_mw"
+            name="Forecast at cutoff"
+            stroke={COLORS.forecast}
+            strokeWidth={1.75}
+            dot={false}
+            isAnimationActive={false}
           />
-        )}
-      </ComposedChart>
-    </ResponsiveContainer>
+          {data.length > 96 && (
+            <Brush
+              dataKey="t"
+              height={26}
+              travellerWidth={8}
+              stroke={COLORS.axis}
+              tickFormatter={tick}
+              fill="#f8fafc"
+            />
+          )}
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
   )
 }

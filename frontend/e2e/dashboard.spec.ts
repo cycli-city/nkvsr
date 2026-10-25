@@ -133,6 +133,24 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('Used at decision time', { exact: true }).first()).toBeVisible()
   })
 
+  test('dragging a zoom handle zooms the timeline and does not navigate away', async ({ page }) => {
+    // Regression: letting go of the handle over the plot used to count as a click on the chart (opened /vintages).
+    await openDashboard(page)
+    const chart = page.locator('section[aria-labelledby="timeline-h"] .recharts-wrapper')
+    await chart.scrollIntoViewIfNeeded()
+    const line = chart.locator('.recharts-line path').first()
+    const before = await line.getAttribute('d')
+    const handle = (await chart.locator('.recharts-brush-traveller').first().boundingBox())!
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(handle.x + 300, handle.y + handle.height / 2, { steps: 10 })
+    await page.mouse.up()
+    await expect.poll(() => line.getAttribute('d')).not.toBe(before) // the plot was zoomed
+    await page.waitForTimeout(300)
+    await expect(page).not.toHaveURL(/\/vintages/)
+    await expect(page.getByRole('heading', { name: 'Wind generation timeline' })).toBeVisible()
+  })
+
   test('the decision brief steps through decision dates', async ({ page }) => {
     await openDashboard(page)
     const brief = page.locator('section[aria-labelledby="brief-h"]')
