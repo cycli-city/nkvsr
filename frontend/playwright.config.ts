@@ -39,7 +39,13 @@ export default defineConfig({
     {
       command: `${PY} -m app.cli generate-synthetic-dev --data-dir ../data/dev && ${PY} -m uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000`,
       cwd: '../backend',
-      env: { DATA_DIR: '../data/dev', APP_ENV: 'development', CORS_ORIGINS: WEB },
+      env: {
+        DATA_DIR: '../data/dev',
+        APP_ENV: 'development',
+        CORS_ORIGINS: WEB,
+        // The suite fires hundreds of requests from one address within a minute; the production limiter would 429 it.
+        RATE_LIMIT_PER_MINUTE: '0',
+      },
       url: `${API}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
