@@ -67,6 +67,21 @@ The snapshot is small (Parquet, zstd) — check with `du -sh data/snapshots/curr
 Free-tier note: the service sleeps after ~15 min idle and takes up to ~1 minute to wake. The UI detects slow starts and says
 so ("Still waiting for the API…"), and the client waits up to 60 s. Warm it before a demo by opening `/api/health`.
 
+### Keeping the free-tier API awake
+
+`.github/workflows/keep-alive.yml` calls `/api/health` every 10 minutes (and checks that `data_loaded` is `true`), so visitors normally
+never meet the one-minute wake-up. What to know about it:
+
+* **Best effort.** GitHub may delay scheduled runs when it is busy; a gap longer than 15 minutes lets the service sleep, and the next
+  visitor sees the "Still waiting for the API…" hint. GitHub also switches scheduled workflows off after 60 days without repository
+  activity. For a second, independent pinger, add a free 5-minute HTTP monitor (for example UptimeRobot) on the same URL.
+* **Free hours.** Render gives a workspace 750 free instance hours per month and suspends its free services when they run out. One service
+  awake all month is 720–744 hours, so this fits, but only if that workspace runs no other free service.
+* **Spirit of the free tier.** Render staff have said on their community forum that deliberately keeping a free service awake goes against
+  the spirit of the plan. It is meant for the review period: turn it off afterwards (*Actions → Keep API awake → ⋯ → Disable workflow*,
+  or delete the file) or move the API to a paid instance.
+* **Housekeeping.** The workflow deletes its own older runs (the latest three are kept) so the Actions tab stays readable.
+
 ## 3. Deploy the UI on Vercel
 
 1. Vercel → **Add New → Project** → import the repo.

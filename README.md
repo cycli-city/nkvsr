@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Live app: <https://windscope-uk-sand.vercel.app>** · API docs (Swagger): <https://windscope-api-5joc.onrender.com/api/docs> · how to run it locally: [§10](#10-local-installation--startup)
-(the API runs on a free tier and sleeps when idle, so the very first load can take up to a minute)
+(the API runs on a free tier; a scheduled workflow keeps it awake, but if it has been idle the very first load can still take up to a minute)
 
 **Day-ahead wind forecast analytics for GB power procurement.** For every half-hour of a delivery day it shows
 the national wind forecast a buyer could actually see at the day-ahead decision cutoff, and quantifies how
@@ -102,7 +102,7 @@ Each area has its own README with a layout map and a "where do I change X?" tabl
 ├── render.yaml                  API deployment blueprint    (frontend/vercel.json for the UI)
 ├── SECURITY.md                  security model, what is and is not claimed, how to report a vulnerability
 ├── LICENSE · CONTRIBUTING.md · CODE_OF_CONDUCT.md · CHANGELOG.md · .editorconfig
-├── .github/                     workflows (ci · codeql · dependency-audit), dependabot.yml, PR and issue templates
+├── .github/                     workflows (ci · codeql · dependency-audit · keep-alive), dependabot.yml, PR and issue templates
 ├── data/snapshots/current/      the committed REAL January 2026 snapshot (Parquet + manifest with SHA-256)
 ├── docs/                        numbered docs (index in docs/README.md): context · assumptions · architecture · API · deploy · testing · demo · findings · traceability · UAT
 ├── backend/                     FastAPI + pandas API                                   → backend/README.md
@@ -318,8 +318,8 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 
 Deployed on 2026-10-25 and checked **anonymously in a fresh browser profile with no stored state** (28 scripted checks, see
 `docs/STATUS.md`), then re-checked after the final redeploy (13 checks, including *no Content-Security-Policy violation on any page*). That is close to, but not literally, an incognito window: the owner still has to open each URL in incognito
-before submitting. The API runs on Render's **free tier and sleeps when idle**, so the first request can take about a minute
-(the UI says so while it waits). The API is built from the `main` branch (every merge redeploys it). Step-by-step instructions
+before submitting. The API runs on Render's **free tier, which sleeps when idle**: a scheduled workflow (`keep-alive.yml`, every 10 minutes) keeps it
+awake, and if it ever has slept the first request can take about a minute (the UI says so while it waits). The API is built from the `main` branch (every merge redeploys it). Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
 [`docs/06-DEPLOYMENT.md`](docs/06-DEPLOYMENT.md); configs: [`frontend/vercel.json`](frontend/vercel.json),
 [`render.yaml`](render.yaml).
