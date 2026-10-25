@@ -76,8 +76,7 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 ## Not covered / not run — be honest about these
 
 * **The live Elexon API** (schema, parameters, units, history). Needs `make verify-upstream` on a connected machine.
-* **GitHub Actions**: observed on GitHub for commit `90c4fef` (run 2): the backend, frontend, API-contract and Docker + Compose jobs
-  passed; the Playwright job failed one test (Intervals pager overflow at 320 px, see the defects table). The fix is committed
-  after that run; its CI result is recorded in `docs/STATUS.md` once observed.
+* **GitHub Actions**: run 2 (`90c4fef`) failed one Playwright test (Intervals pager overflow at 320 px, see the defects table);
+  run 3 (`b78b322`, the fix) passed all 5 jobs. All of this ran on synthetic data, never on Elexon data.
 * Cross-browser (only Chromium), screen-reader testing with real assistive tech, load testing, and real cold-start timing on Render.
 * The Playwright suite runs against the synthetic snapshot, so it proves behaviour and invariants, not real-data results.
