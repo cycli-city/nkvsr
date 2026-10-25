@@ -1,0 +1,42 @@
+name: Keep API awake
+
+# The API runs on Render's free plan, which spins a service down after 15 minutes without inbound traffic; the next visitor
+# then waits about a minute. This calls the health endpoint every 10 minutes so the deployed demo stays warm.
+# Trade-offs and how to turn it off: docs/06-DEPLOYMENT.md, "Keeping the free-tier API awake".
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write # only to delete this workflow's own old runs, so the Actions tab stays readable
+  contents: read
+
+concurrency:
+  group: keep-api-awake
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      API_URL: https://windscope-api-5joc.onrender.com
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Call /api/health (waits for a sleeping service to wake)
+        run: |
+          code=$(curl --silent --show-error --location --max-time 90 \
+            --retry 3 --retry-delay 15 --retry-all-errors \
+            --output health.json --write-out '%{http_code}' "$API_URL/api/health")
+          cat health.json; echo
+          test "$code" = "200"
+          grep -q '"data_loaded":true' health.json
+
+      - name: Delete older runs of this workflow (keep the latest few)
+        if: always()
+        continue-on-error: true
+        run: |
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow keep-alive.yml --status completed --limit 100 \
+            --json databaseId --jq '.[3:][].databaseId' \
+            | xargs -r -n1 gh run delete --repo "$GITHUB_REPOSITORY"
