@@ -9,7 +9,7 @@ are `null` ("unavailable") — never `0`.
 
 ## Common analysis parameters
 
-Used by `summary`, `timeseries`, `accuracy`, `intervals`, `intervals/export`.
+Used by `summary`, `timeseries`, `accuracy`, `cutoff-sensitivity`, `intervals`, `intervals/export`.
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
@@ -32,9 +32,32 @@ interpretation that produced it.
 | `GET /api/accuracy` | Breakdowns | `daily[]`, `by_slot[]` (48 UK wall-clock slots), `by_daypart[]` (day 07–23 / night), `histogram`, `error_distribution`, `largest_errors[]` |
 | `GET /api/intervals` | Paginated explorer | + `page` (≥1), `page_size` (1–500), `sort_by` (`start_time`·`forecast`·`actual`·`error`·`abs_error`·`publish_time`·`forecast_age`), `sort_dir`, `status` (`all`·`matched`·`missing_any`·`missing_forecast`·`missing_actual`·`missing_both`), `direction` (`over`·`under`), `min_abs_error`, `q` (date/time/weekday/status search) |
 | `GET /api/intervals/export` | The same filtered table as CSV (no paging) | header includes `error_mw_forecast_minus_actual` |
+| `GET /api/cutoff-sensitivity` | The accuracy analysis repeated with only the cutoff moved: one point per regular WINDFOR publication run (times seen on ≥ 25 % of days) plus the selected cutoff | `run_times_local[]`, `points[]{cutoff_local,is_selected,is_run_time,run_used_local,n,coverage,mae_mw,rmse_mw,bias_mw,wape,median_forecast_age_h}`, `note` |
 | `GET /api/forecast-vintages?start=<ISO with tz>&cutoff=` | Every stored publication for one half-hour | `vintages[]{publish_time,forecast_mw,lead_time_h,minutes_from_cutoff,eligible,selected}`, `selected`, `latest`, `explanation` (why a comparison cannot be shown) |
 | `GET /api/decision-brief?decision_date=&cutoff=` | The forecast set visible at the cutoff for the *next* delivery day | `forecast_set{n_with_forecast,distinct_publications,first/last_publish_time,mean_mw,peak_*,trough_*,energy_mwh}`, `hindsight`, `points[]` |
 | `POST /api/admin/refresh` | Re-ingest from Elexon. **Disabled (404) unless `ADMIN_TOKEN` is set**; requires header `X-Admin-Token` | `retrieved_at`, row counts, `warnings[]` |
+
+## Caching, conditional requests and limits
+
+The analytics endpoints (`summary`, `timeseries`, `accuracy`, `cutoff-sensitivity`, `intervals`, `intervals/export`,
+`forecast-vintages`, `decision-brief`) are **pure functions of the snapshot and the query string**, so they are cached:
+
+| Header | Meaning |
+|---|---|
+| `ETag: W/"…"` | Derived from (snapshot, settings, process, path, canonical query). Send it back as `If-None-Match` and an unchanged resource answers **`304`** *without running the endpoint*. |
+| `Cache-Control: public, max-age=300` | Browsers may reuse a response for `BROWSER_CACHE_SECONDS` (default 300; `0` → `no-cache`, still revalidated by ETag). Errors are `no-store`. |
+| `X-Cache: MISS \| HIT \| HIT-304` | Whether the server rendered the body, replayed it from memory, or answered a conditional request. For diagnostics. |
+
+A new snapshot (a refresh) or a restart changes the ETag, so a client can never be told "304" for stale data. The cache holds at
+most 256 rendered bodies / 32 MB (least-recently-used). `/api/metadata` and `/api/health` are never cached.
+
+**Rate limit:** `RATE_LIMIT_PER_MINUTE` (default 300, burst 60) per client, keyed on the first `X-Forwarded-For` hop; beyond it the API
+answers `429` with `{"error":{"code":"rate_limited",…}}` and `Retry-After` (CORS headers included so a browser can read it). `/api/health`
+and CORS preflights are exempt; `0` disables it.
+
+**Response headers on every API response:** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`,
+`Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin`, a deny-all `Content-Security-Policy` (not on the Swagger page, which loads
+its script from a CDN) and, over HTTPS, `Strict-Transport-Security`.
 
 ## Errors
 
@@ -46,6 +69,7 @@ Every non-2xx response has the same shape, so clients need one handler:
 
 | HTTP | `code` | When |
 |---|---|---|
+| 429 | `rate_limited` | the client exceeded `RATE_LIMIT_PER_MINUTE`; honour `Retry-After` |
 | 422 | `invalid_request` | bad parameter, reversed/oversized/out-of-window range, bad cutoff, unaligned `start` |
 | 404 | `not_found` | unknown route; interval outside the loaded delivery coverage |
 | 404 | `admin_disabled` | refresh endpoint called while `ADMIN_TOKEN` is unset |

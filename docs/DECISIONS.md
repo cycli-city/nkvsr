@@ -100,3 +100,41 @@ and it removes the need to trust the stamp when it is early.
 WINDFOR responses (with provenance and the exact queries). `test_real_recorded_responses.py` pins the facts the rules depend on
 (hourly grid, the eight publication times, 07:30 in force and 09:30 ten minutes late at the 09:20 cutoff). It asserts properties of
 a frozen recording, not promises about the future; `verify-upstream` is the live check.
+
+**ADR-024 — Analytics responses are cached as rendered bytes and revalidated with ETags (`ResponseCacheMiddleware`).** Every analytics
+body is a pure function of (snapshot, settings, query), so keeping the compressed JSON skips pandas, Pydantic and gzip on repeat requests, and
+`If-None-Match` is answered with `304` without running anything. Keys include a version made of the snapshot fingerprint, the analysis
+settings and a per-process id (so a refresh or a redeploy can never yield a stale `304`). Bounded to 256 entries / 32 MB (LRU); only HTTP 200
+is stored, errors are `no-store`; the middleware sits *inside* CORS so cached responses carry the asking origin's CORS headers and the cache
+never stores them. *Alternatives rejected:* caching Python objects only (still pays serialisation); an external cache (new infrastructure for
+a 120 KB dataset); `max-age` only (no way to revalidate cheaply). *Measured motivation* (Render free plan, 2026-10-25, `curl` from the build sandbox through its proxy, a handful of requests per view, so indicative rather than a benchmark): an uncached
+response took ~0.3–1.0 s (summary ~0.9 s, time series 0.6–1.0 s, accuracy 0.3–0.7 s) and ~3.1 s for the decision-timing view, against ~0.25 s for a cached response,
+which is the same as `/api/health`, i.e. the network round trip. After a start-up pre-warm the dashboard's own first-load requests were all cache hits (`X-Cache: HIT`).
+
+**ADR-025 — Start-up pre-warm of the default dashboard views.** After the snapshot loads, a background task requests the dashboard's first-load
+URLs for both readings of "January" through the real ASGI stack, populating the cache before the first visitor. It is best-effort (failures are
+logged and ignored) and does not delay health checks. Below-the-fold analysis (decision timing) is loaded by the browser only when scrolled near,
+so it never competes with the first-load requests on a slow server.
+
+**ADR-026 — Per-client rate limiting in the application, with an explicit trust trade-off.** A token bucket (default 300 requests/min, burst 60)
+protects the CPU of a small host from one noisy client; health checks and CORS preflights are exempt; `0` disables. The client key is the first
+`X-Forwarded-For` hop (else the socket peer). That can be spoofed to evade *a client's own* limit but cannot be used to exhaust anyone else's; the
+alternative (right-most hop) would put all users in one bucket on a platform with two proxies, turning a protection into an outage. Network-level
+abuse is left to the edge (Render sits behind Cloudflare). Documented in `SECURITY.md`.
+
+**ADR-027 — A strict Content-Security-Policy for the UI, tested in a real browser.** `default-src 'self'; script-src 'self'; style-src 'self'`
+with no `unsafe-inline`/`unsafe-eval`, `frame-ancestors 'none'`, `object-src 'none'`, and `connect-src` limited to `'self'` (plus, on Vercel, the exact origin of
+the deployed API: no wildcard, so it must be changed in `csp.ts` and `vercel.json` if the API is deployed under another name). The policy is defined once (`frontend/csp.ts`), applied to the Vite preview server used by the browser tests (so a policy that
+breaks the app fails CI, and a spec fails on any `securitypolicyviolation`), and a unit test keeps `vercel.json` and `nginx.conf.template` identical
+to it. The API sends a deny-all CSP except on its Swagger page, plus `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP and
+HSTS (over HTTPS). *Cost:* tests that inject a `<style>` tag (wide-font layout) must bypass CSP in their own context.
+
+**ADR-028 — Decision-time sensitivity as a first-class view (`/api/cutoff-sensitivity`).** The brief makes the decision cutoff the central
+assumption, so the product shows how much it matters: the same analysis with only the cutoff moved to each regular publication run (a run is a
+publication time seen on ≥ 25 % of days, which keeps one-off releases out). Each point reuses the exact selection rule, window and eligible set of
+the headline KPIs, and the selected point equals the headline (tested). Later runs are labelled hindsight. The narrative sentences are generated
+from the numbers and never assert a cause.
+
+**ADR-029 — Compose services run least-privilege.** Read-only root filesystem with explicit tmpfs scratch space, all capabilities dropped,
+`no-new-privileges`. The one-shot `ingest`/`verify` tools write to bind mounts and are excluded.
+

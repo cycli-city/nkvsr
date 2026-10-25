@@ -1,8 +1,9 @@
 """Compute the default dashboard views once, in the background, right after start-up.
 
-On a small free-tier host the first request for each view costs a full pandas pass (about 1.7 s measured on
-Render's free plan versus ~0.3 s once cached). Pre-warming moves that cost to boot time so the first visitor
-gets the cached answer. It goes through the real ASGI stack (so the response cache, rate limiter and CORS
+On a small free-tier host the first request for each view costs a full pandas pass (measured on Render's free plan:
+roughly 0.3-1.0 s per analysis view and about 3 s for the decision-timing view, which repeats the analysis once per
+publication run, versus about 0.25 s once cached, which is the network round trip). Pre-warming moves that cost to
+boot time so the first visitor gets the cached answer. It goes through the real ASGI stack (so the response cache, rate limiter and CORS
 logic are exercised exactly as for a browser) and it is strictly best-effort: any failure is logged and ignored.
 """
 

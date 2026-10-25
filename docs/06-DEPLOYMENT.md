@@ -1,8 +1,8 @@
 # 06 — Deployment runbook
 
-> **Nothing has been deployed yet.** The build environment had no access to Vercel/Render and no credentials. This
-> runbook is what *you* do; the configs it uses are in the repo and have been validated for syntax and (for Docker)
-> exercised locally. Do not write a URL into the README until step 6 passes.
+> **Status: deployed and verified on 2026-10-25** (API on Render, UI on Vercel; see section 9 for how, and
+> `docs/STATUS.md` for the identifiers and the checks that were run). Sections 1-8 are the repeatable runbook for
+> redeploying or for deploying to your own accounts. Do not write a URL into the README until step 6 passes.
 
 ## Topology
 
@@ -15,8 +15,9 @@ Browser ──HTTPS──▶ Vercel (static Vite build, SPA rewrites)
 
 **Why this split (ADR-012):** Vercel is ideal for the static React build. The API needs pandas + pyarrow (~400 MB
 installed) and a read-mostly in-memory dataset; that exceeds comfortable Vercel Python-function limits and would reload on
-every cold start. A container keeps production identical to local Docker. If you must use a single platform, Heroku
-(container stack, `heroku.yml`) can host the API, but it is **not verified** here.
+every cold start. A container keeps production identical to local Docker. The brief names Vercel or Heroku; Heroku has
+no free tier any more, so the API runs on Render's free Docker tier. Any other container host can run the same image,
+but only Render has been verified.
 
 ## 0. Prerequisites you must satisfy
 
@@ -72,7 +73,10 @@ so ("Still waiting for the API…"), and the client waits up to 60 s. Warm it be
 2. **Root Directory:** `frontend`. Framework preset: **Vite** (auto). Build command/output come from `frontend/vercel.json`.
 3. **Environment variable:** `VITE_API_BASE_URL` = the Render URL from step 2 (no trailing slash). *It is baked in at build time —
    changing it requires a redeploy.*
-4. Deploy. Note the URL, e.g. `https://windscope-uk.vercel.app`.
+4. **If your API URL differs from `https://windscope-api-5joc.onrender.com`**, put it in `API_ORIGIN` in `frontend/csp.ts` and in the
+   `connect-src` of `frontend/vercel.json` (the unit test `security-headers.test.ts` fails until both agree). The Content-Security-Policy allows the
+   browser to call exactly that one origin, so a mismatch shows up as a blocked request in the console.
+5. Deploy. Note the URL, e.g. `https://windscope-uk.vercel.app`.
 
 ## 4. Close the CORS loop
 

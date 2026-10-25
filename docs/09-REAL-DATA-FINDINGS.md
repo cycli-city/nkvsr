@@ -69,6 +69,30 @@ So the conclusion is **robust** to the exact gate-closure time: every cutoff in 
 past 09:30 improves MAE by 26 MW (1.3 %). A buyer's real deadline is earlier than gate closure, so the 07:30 run is
 if anything the realistic one.
 
+### 3b. Would waiting have helped? (the new "Does the decision time matter?" panel)
+
+The same analysis, repeated with only the cutoff moved to just after each regular publication run (`GET /api/cutoff-sensitivity`;
+runs = publication times seen on at least a quarter of the days). Decisions 1–31 Jan, n = 1,488 in every row:
+
+| Cutoff (UK, day before delivery) | Run in force | MAE (MW) | RMSE (MW) | Bias (MW) |
+|---|---|---|---|---|
+| 02:30 | 02:30 | 2,076 | 2,582 | +1,735 |
+| 04:30 | 04:30 | 2,020 | 2,526 | +1,671 |
+| 07:30 | 07:30 | 2,042 | 2,509 | +1,748 |
+| **09:20 (default; EPEX gate closure)** | **07:30** | **2,042** | **2,509** | **+1,748** |
+| 09:30 | 09:30 | 2,016 | 2,510 | +1,730 |
+| 11:30 | 11:30 | 1,904 | 2,364 | +1,687 |
+| 15:30 | 15:30 | 1,877 | 2,331 | +1,709 |
+| 18:30 | 18:30 | 1,878 | 2,331 | +1,692 |
+| 22:30 | 22:30 | 1,830 | 2,282 | +1,603 |
+
+* **Waiting helps, modestly, and not steadily.** From the 09:20 cutoff to the last run of the day MAE falls by 10.4 % (2,042 → 1,830 MW)
+  and RMSE by 9.0 %; the 07:30 run is slightly *worse* than the 04:30 one. Everything after the 09:20 gate closure is hindsight for a
+  day-ahead buyer: it is shown to measure how much information is still arriving, not as something that could have been used.
+* **The offset does not go away.** The bias stays between +1,603 and +1,748 MW in every run, so more than 90 % of it is still there with the
+  end-of-day forecast. Later forecasts remove scatter, not the systematic gap. That is consistent with a persistent offset between what
+  WINDFOR forecasts and what FUELHH WIND measures (§2), but this data cannot prove that.
+
 ## 4. Does the hourly-vs-half-hourly choice matter? (it does not, at this level)
 
 WINDFOR is hourly and FUELHH half-hourly (docs/02 §G). Three treatments of the same snapshot:

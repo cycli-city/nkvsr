@@ -36,6 +36,7 @@ and never feeds a metric.
 | **Decision brief** | For a chosen decision date: the forecast set visible at the cutoff for the next delivery day (mean / peak / trough / energy, which publications it came from) vs hindsight. |
 | **Timeline** | Forecast-at-cutoff vs actual on one UK-time axis in MW, zoomable, with tooltips showing publication time and error; optional hindsight overlay. Click a point to open its vintages. |
 | **Accuracy analysis** | Daily trend, error distribution, half-hour-of-day profile, day vs night, over- vs under-forecast split, empirical error range, baselines, ten largest misses. |
+| **Decision timing** | "Does the decision time matter?": the same analysis re-run with only the cutoff moved to each regular WINDFOR publication run, with the chosen cutoff marked and later runs labelled hindsight. On the January data waiting to the last run of the day lowers MAE by ~10 % but leaves the bias (+1.6 GW) almost untouched. |
 | **Interval explorer** | Server-side sortable / filterable / searchable / paginated table (cutoff, publication time, forecast, actual, signed + absolute error, missing-data status) with CSV export. |
 | **Vintage comparison** | Every WINDFOR publication for one half-hour, the one eligible at the cutoff marked, with chart and table. |
 | **Methodology & data quality** | Sources, the cutoff rule, both readings of "January", metric formulas, ingestion quality report, limitations. |
@@ -74,6 +75,11 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 * **Pure domain layer** (no I/O, no FastAPI): where the correctness risk lives, so it is exhaustively unit-tested.
 * **One adapter for upstream assumptions**: `backend/app/elexon/{endpoints,contract}.py`.
 * **Contract-first UI**: TypeScript types are *generated* from the backend's OpenAPI document; CI fails on drift.
+* **Fast because it is pure**: every analytics response is a function of (snapshot, query), so rendered responses are cached with ETags
+  (`304` without computing) and the default dashboard views are pre-computed at start-up (ADR-024/025).
+* **Security in layers**: strict CSP on the UI (checked in a real browser), hardening headers and a per-client rate limit on the API, a
+  disabled-by-default admin endpoint, least-privilege containers, Dependabot + CodeQL + dependency audits, and a history scanned for secrets.
+  Details and honest limits: [`SECURITY.md`](SECURITY.md) (ADR-026/027/029).
 
 ## 4. Directory & file structure
 
@@ -84,10 +90,11 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 ├── docker-compose.yml           API + web (+ one-shot `ingest` / `verify` tools)
 ├── docker-compose.synthetic.yml offline UI demo on clearly-labelled SYNTHETIC data
 ├── .env.example                 every configuration variable, with safe defaults
-├── render.yaml · heroku.yml     API deployment blueprints   (frontend/vercel.json for the UI)
-├── .github/workflows/ci.yml     lint · types · tests · contract · e2e · docker smoke test
-├── data/snapshots/              `current/` = the real snapshot (Parquet + manifest) once ingested
-├── docs/                        project context, assumptions, architecture, API, deploy, testing, demo kit
+├── render.yaml                  API deployment blueprint    (frontend/vercel.json for the UI)
+├── SECURITY.md                  security model, what is and is not claimed, how to report a vulnerability
+├── .github/                     workflows (ci · codeql · dependency-audit), dependabot.yml, PR template
+├── data/snapshots/current/      the committed REAL January 2026 snapshot (Parquet + manifest with SHA-256)
+├── docs/                        context · assumptions · architecture · API · live-data verification · deploy · testing · demo kit · real-data findings · requirements traceability
 ├── backend/
 │   ├── Dockerfile · pyproject.toml
 │   ├── app/
@@ -95,11 +102,11 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 │   │   ├── domain/              timeutil · windows · vintage · matching · metrics · baselines · breakdowns
 │   │   ├── elexon/              endpoints · contract · client · normalize      (the only upstream-aware code)
 │   │   ├── store/               snapshot (Parquet+manifest) · dataset · synthetic (dev only, guarded)
-│   │   ├── services/            analysis · ingestion · verification
-│   │   └── api/                 schemas · deps · routes/{analysis,system}
-│   └── tests/                   unit · api · integration (deterministic fixtures; no live Elexon calls)
+│   │   ├── services/            analysis · ingestion · verification · prewarm
+│   │   └── api/                 schemas · deps · middleware (rate limit, response cache) · routes/{analysis,system}
+│   └── tests/                   unit · api · integration; deterministic fixtures + one recorded real day (fixtures/real)
 └── frontend/
-    ├── Dockerfile · nginx.conf.template · vercel.json · playwright.config.ts
+    ├── Dockerfile · nginx.conf.template · vercel.json · csp.ts · playwright.config.ts
     ├── openapi.json             exported API contract → src/api/schema.d.ts (generated)
     ├── e2e/                     Playwright end-to-end + axe accessibility specs
     └── src/
@@ -262,6 +269,9 @@ Everything is environment-driven; see [`.env.example`](.env.example) (placeholde
 | `ADMIN_TOKEN` | *(empty)* | ≥16 chars enables `POST /api/admin/refresh`; empty keeps it disabled |
 | `ACTUAL_AVAILABILITY_LAG_MINUTES` | `30` | assumed delay before a half-hour's actual is usable (baseline leakage guard; a later recorded publication time always wins) |
 | `FORECAST_ALIGNMENT` | `hold` | WINDFOR is hourly, FUELHH half-hourly: `hold` applies each forecast hour to both half-hours it covers, `exact` only matches identical start times (the rest are reported missing) |
+| `RATE_LIMIT_PER_MINUTE` | `300` | per-client request budget before HTTP 429 (`0` disables; health checks exempt) |
+| `BROWSER_CACHE_SECONDS` | `300` | how long browsers may reuse an analytics response (they also revalidate with an ETag → `304`) |
+| `PREWARM_ON_START` | `true` | compute the default dashboard views in the background at start-up |
 | `ELEXON_*` | see file | base URL, timeout, retries, backoff, concurrency, chunk sizes |
 | `VITE_API_BASE_URL` (frontend build) | *(empty = same-origin)* | absolute API origin when UI and API are on different hosts |
 
@@ -276,13 +286,14 @@ make check       # lint + typecheck + unit/integration tests (what CI runs, minu
 
 Backend tests use deterministic fixtures and a mocked Elexon transport; **no test calls the live API**. See
 [`docs/07-TESTING.md`](docs/07-TESTING.md) for what is covered and the mutation checks that prove the key tests have teeth.
+Every requirement of the brief, mapped to the code that implements it and the test or run that proves it (and what is still an assumption): [`docs/10-REQUIREMENTS-TRACEABILITY.md`](docs/10-REQUIREMENTS-TRACEABILITY.md).
 
 ## 14. API documentation
 
 Run the API and open **`/api/docs`** (Swagger UI) or `/api/openapi.json`. Endpoint guide: [`docs/05-API.md`](docs/05-API.md).
 
-`GET /api/health` · `/api/metadata` · `/api/summary` · `/api/timeseries` · `/api/accuracy` · `/api/intervals` (+ `/export` CSV) · `/api/forecast-vintages` · `/api/decision-brief` · `POST /api/admin/refresh` (token-guarded, off by default).
-Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": {"code", "message", "details"}}`.
+`GET /api/health` · `/api/metadata` · `/api/summary` · `/api/timeseries` · `/api/accuracy` · `/api/cutoff-sensitivity` · `/api/intervals` (+ `/export` CSV) · `/api/forecast-vintages` · `/api/decision-brief` · `POST /api/admin/refresh` (token-guarded, off by default).
+Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": {"code", "message", "details"}}` (`429` when the per-client rate limit is exceeded). Analytics responses carry an `ETag` and answer `If-None-Match` with `304`.
 
 ## 15. Deployment
 
@@ -292,12 +303,12 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 | API (Render, Docker) | <https://windscope-api-5joc.onrender.com> ([health](https://windscope-api-5joc.onrender.com/api/health) · [docs](https://windscope-api-5joc.onrender.com/api/docs)) | ✅ production mode, real snapshot loaded, CORS limited to the UI |
 
 Deployed on 2026-10-25 and checked **anonymously in a fresh browser profile with no stored state** (28 scripted checks, see
-`docs/STATUS.md`). That is close to, but not literally, an incognito window: the owner still has to open each URL in incognito
+`docs/STATUS.md`), then re-checked after the final redeploy (13 checks, including *no Content-Security-Policy violation on any page*). That is close to, but not literally, an incognito window: the owner still has to open each URL in incognito
 before submitting. The API runs on Render's **free tier and sleeps when idle**, so the first request can take about a minute
 (the UI says so while it waits). The API is built from the `claude/zen-bohr-nfa0ly` branch. Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
 [`docs/06-DEPLOYMENT.md`](docs/06-DEPLOYMENT.md); configs: [`frontend/vercel.json`](frontend/vercel.json),
-[`render.yaml`](render.yaml), [`heroku.yml`](heroku.yml).
+[`render.yaml`](render.yaml).
 
 ## 16. Known limitations & future improvements
 
@@ -324,16 +335,16 @@ What has **actually been run and observed** (not just written):
 
 | Check | Result |
 |---|---|
-| Backend: `pytest` (unit, API, mocked-Elexon end-to-end ingestion, recorded real responses) | ✅ passing (298 tests) |
+| Backend: `pytest` (unit, API, mocked-Elexon end-to-end ingestion, recorded real responses) | ✅ passing (358 tests) |
 | Backend: `ruff`, `ruff format --check`, `mypy --strict` | ✅ clean |
 | Backend mutation checks (cutoff `<=`, `backward`, error sign, baseline lag, forecast-hour rounding, publication-time rule) | ✅ each caught by tests |
-| Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 75 passing |
-| Frontend: Playwright E2E + axe (Chromium, production build, real API) | ✅ 43 passing (on the labelled synthetic snapshot) |
+| Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 95 passing |
+| Frontend: Playwright E2E + axe + CSP-violation sweep (Chromium, production build, real API) | ✅ 47 passing (on the labelled synthetic snapshot) |
 | Docker: API and web images build; run non-root; healthy; production refuses synthetic data | ✅ |
 | Docker Compose stack: service discovery, health-gated start, browser → nginx → API | ✅ (run on synthetic data) |
 | **Live Elexon API: schema, parameters, history coverage** | ✅ **`make verify-upstream` PASS on 2026-10-25**; WINDFOR unit and scope remain assumptions |
 | **Real January 2026 snapshot** | ✅ **ingested and committed** (`data/snapshots/current`); results in [`docs/09`](docs/09-REAL-DATA-FINDINGS.md) |
-| GitHub Actions CI | ✅ run 5 (`3682682`, includes the real snapshot and hourly-forecast handling): all 5 jobs passed; the first run had caught a real 320 px layout bug (fixed). Details: `docs/STATUS.md` |
+| GitHub Actions CI | ✅ run 9 (`e8ccab6`, security + performance + decision-timing work): all 5 jobs passed; CodeQL (Python, TypeScript) and the dependency audit also passed. An earlier run had caught a real 320 px layout bug (fixed). Details: `docs/STATUS.md` |
 | **Vercel / Render deployment** | ✅ deployed 2026-10-25; 28 anonymous checks in a fresh browser profile (API health/metadata/docs, CORS allow- and deny-lists, admin endpoint disabled, real numbers on the dashboard, deep links, URL-restores-view, axe WCAG 2.1 A/AA, security headers, no horizontal scroll at 390 px, no console errors) |
 | **Owner's incognito check of each URL, demo video, form** | ❌ **still to do: see `docs/06-DEPLOYMENT.md` §6, `docs/08-DEMO-GUIDE.md`** |
 
