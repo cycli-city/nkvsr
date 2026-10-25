@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart LR
-  subgraph Elexon["Elexon Insights (BMRS) API — read only"]
+  subgraph Elexon["Elexon API (read only)"]
     FH["/datasets/FUELHH/stream (WIND)"]
     WF["/datasets/WINDFOR/stream"]
   end
