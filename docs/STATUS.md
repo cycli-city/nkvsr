@@ -9,7 +9,7 @@ _Update this file at the end of each work block. It is the first thing to read a
 | 1 Data/domain validation | **Done.** `make verify-upstream` PASS against the live Elexon API (2026-10-25); real January 2026 data ingested and committed. Two findings changed the product: WINDFOR is **hourly** (ADR-021) and the 09:30 publication lands 10 min after the 09:20 cutoff on every day. Still assumptions: WINDFOR unit and scope, hour semantics. See `04-DATA-SOURCE-VERIFICATION.md`. |
 | 2 Plan/architecture/docs | Done (docs 00-10, DECISIONS ADR-001…029; requirement-by-requirement proof in `10-REQUIREMENTS-TRACEABILITY.md`) |
 | 3 Backend | **Done**: engine, ingestion, API, CLI, response cache + ETag, rate limit, security headers, pre-warm, decision-time sensitivity. 358 tests, ruff + mypy strict clean. |
-| 4 Frontend | **Done**: dashboard (incl. "Does the decision time matter?"), intervals, vintages, methodology; strict CSP. 95 Vitest + 47 Playwright/axe tests. |
+| 4 Frontend | **Done**: dashboard (incl. "Does the decision time matter?"), intervals, vintages, methodology; strict CSP. 98 Vitest + 48 Playwright/axe tests + an 80-check live acceptance suite (`docs/11-UAT-REPORT.md`). |
 | 5 Docker/CI/README | **Done**: images built/run, Compose verified (read-only, no capabilities), CI green on GitHub, CodeQL + dependency audit + Dependabot configured, README reflects real results. |
 | 6 QA + demo kit | **Done**: browser-verified on the real snapshot (0 axe violations on 4 pages, no console errors); `08-DEMO-GUIDE.md` filled with real numbers; `09-REAL-DATA-FINDINGS.md`. |
 | 7 Deploy + report | **Deployed and verified anonymously (2026-10-25)**: API on Render, UI on Vercel (see "Deployment" below). Remaining, user-side: literal incognito check of each URL, the video and the form. |
@@ -62,8 +62,8 @@ a conditional request returns `304`. The Vercel CSP now allows exactly one cross
 | Engine vs an independent pandas calculation (hourly-mean comparison) | bias identical (+1,747.9 MW); MAE within 0.2 % |
 | `tsc --noEmit` (strict), `eslint`, `prettier --check` | clean |
 | OpenAPI document and generated TypeScript types vs backend | in sync |
-| `vitest run` | 95 passed |
-| `playwright test` (Chromium, production build, real API on the labelled synthetic snapshot) | 47 passed (incl. axe WCAG 2.1 A/AA on 4 pages with every lazy panel revealed, the wide-font overflow checks and a no-CSP-violation sweep of every page) |
+| `vitest run` | 98 passed |
+| `playwright test` (Chromium, production build, real API on the labelled synthetic snapshot) | 48 passed (incl. axe WCAG 2.1 A/AA on 4 pages with every lazy panel revealed, the wide-font overflow checks and a no-CSP-violation sweep of every page) |
 | **Browser on the REAL snapshot** (API in `APP_ENV=production`, production UI build) | 4 pages: 0 axe violations, no console/network errors, no synthetic banner, figures match the engine |
 | Responsive overflow matrix | no horizontal overflow at 320/390/768/1024/1280/1440 px on any page, also under a wide fallback font |
 | `docker build` backend + web (sandbox-trust variant, see below) | built earlier; API image 691 MB, web image 75 MB (not rebuilt with the real snapshot locally; CI builds it) |
