@@ -311,7 +311,7 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 Deployed on 2026-10-25 and checked **anonymously in a fresh browser profile with no stored state** (28 scripted checks, see
 `docs/STATUS.md`), then re-checked after the final redeploy (13 checks, including *no Content-Security-Policy violation on any page*). That is close to, but not literally, an incognito window: the owner still has to open each URL in incognito
 before submitting. The API runs on Render's **free tier and sleeps when idle**, so the first request can take about a minute
-(the UI says so while it waits). The API is built from the `claude/zen-bohr-nfa0ly` branch. Step-by-step instructions
+(the UI says so while it waits). The API is built from the `main` branch (every merge redeploys it). Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
 [`docs/06-DEPLOYMENT.md`](docs/06-DEPLOYMENT.md); configs: [`frontend/vercel.json`](frontend/vercel.json),
 [`render.yaml`](render.yaml).

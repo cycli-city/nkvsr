@@ -12,9 +12,9 @@ This plan runs **about 4:19 + 4:02 = 8:21** at a relaxed 150 words/minute, leavi
 
 **Do these in order; allow 30 minutes the first time.**
 
-1. **Make the repository show the code.** The public repo's default branch (`main`) currently contains only a placeholder README, so
-   reviewers would see no code and no deployment link. Merge `claude/zen-bohr-nfa0ly` into `main` first (see `docs/STATUS.md`, *Open items*),
-   then check <https://github.com/cycli-city/nkvsr> in a private window: the README must open with the project description and the live links.
+1. **Check the repository shows the code.** The project was merged into `main` (PR #1), so the public repository's front page is the README.
+   Open <https://github.com/cycli-city/nkvsr> in a private window: you should see the CI and CodeQL badges, the live-app link, the
+   architecture diagram and the file tree. If you ever see only a one-line README, `main` has lost the merge: stop and ask.
 2. **Warm the API** (the free host sleeps after ~15 minutes idle and takes up to a minute to wake): open
    `https://windscope-api-5joc.onrender.com/api/health` until it shows `{"status":"ok",…,"data_loaded":true}`, then load the dashboard once. Do this again 2 minutes before recording.
 3. **Rehearse both parts twice** with a timer, reading the *Say* text aloud and doing the *Do* steps. A scripted dry run executed every Part 1 click on the live site without a single failure, so what takes the time is your speech, not the app.
@@ -318,7 +318,7 @@ The *Clock* column is an estimate: speaking time at 150 words/minute plus the ti
 | You are running long (Part over 5:00) | Cut in this order: scene 1.6 → the *Hindsight check* sentence in 1.5 → scene 2.4 → the `docker-compose.yml` lines in 2.6. **Never cut** 1.2, 1.3, 1.5, 2.2 or 2.5. |
 | You are unsure about dragging the zoom handles in 1.4 | Skip the zoom; keep the hover, the hindsight toggle and the click-through. |
 | `make test` is slow in 2.5 | Run it once before recording and show the green summary from the terminal's scrollback instead. |
-| GitHub shows no code (only a placeholder README) | The merge in section 1, step 1, has not happened. Do not record Part 2 until it has. |
+| GitHub shows no code or an old README | Hard-refresh the page; if it persists, `main` is not at the merge commit of PR #1. Do not record Part 2 until it is. |
 
 ## 6. Numbers cheat sheet (real data, default view: decisions 1–31 Jan, cutoff 09:20)
 

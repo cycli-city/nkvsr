@@ -12,10 +12,11 @@ _Update this file at the end of each work block. It is the first thing to read a
 | 4 Frontend | **Done**: dashboard (incl. "Does the decision time matter?"), intervals, vintages, methodology; strict CSP. 98 Vitest + 48 Playwright/axe tests + an 80-check live acceptance suite (`docs/11-UAT-REPORT.md`). |
 | 5 Docker/CI/README | **Done**: images built/run, Compose verified (read-only, no capabilities), CI green on GitHub, CodeQL + dependency audit + Dependabot configured, README reflects real results. |
 | 6 QA + demo kit | **Done**: browser-verified on the real snapshot (0 axe violations on 4 pages, no console errors); `08-DEMO-GUIDE.md` filled with real numbers; `09-REAL-DATA-FINDINGS.md`. |
-| 7 Deploy + report | **Deployed and verified anonymously (2026-10-25)**: API on Render, UI on Vercel (see "Deployment" below). Remaining, user-side: literal incognito check of each URL, the video and the form. |
+| 7 Deploy + report | **Deployed and verified (2026-10-25)**: API on Render, UI on Vercel (see "Deployment" below); **merged to `main` via PR #1**, so the public repository shows the project. Remaining, user-side: literal incognito check of each URL, the video (run sheet in `docs/08`) and the form. |
 
 ## Open items needing the user
 
+0. *(Done)* The project is on `main` (PR #1, merge commit `49d4288`); Render builds `main`.
 1. **Incognito check** of the two URLs below (the owner disabled Vercel Authentication, which had put a login page in front of the UI). Then the **video** and the **form**.
 2. **Video**: recording/upload is a user action; script, real numbers and checklist in `docs/08-DEMO-GUIDE.md`.
 3. **Submission form** and incognito check of every URL (user action).
@@ -27,7 +28,7 @@ Resolved earlier: the `git push` 403 (GitHub access reconnected) and the Elexon 
 
 | Part | Where | State observed |
 |---|---|---|
-| API (Docker, free plan, Frankfurt) | <https://windscope-api-5joc.onrender.com> · service `srv-dbf3jjks728c73e07dgg` · builds branch `claude/zen-bohr-nfa0ly` with auto-deploy | deploy **live**; its log reads `Loaded snapshot (elexon_live): 2016 actuals, 18664 forecast rows`; health checks return 200; env `APP_ENV=production`, `AUTO_INGEST_ON_START=true`, `CORS_ORIGINS` = the two UI aliases below; the admin refresh endpoint is **disabled** (no `ADMIN_TOKEN`) |
+| API (Docker, free plan, Frankfurt) | <https://windscope-api-5joc.onrender.com> · service `srv-dbf3jjks728c73e07dgg` · builds branch `main` with auto-deploy (switched from the feature branch after PR #1 was merged) | deploy **live**; its log reads `Loaded snapshot (elexon_live): 2016 actuals, 18664 forecast rows`; health checks return 200; env `APP_ENV=production`, `AUTO_INGEST_ON_START=true`, `CORS_ORIGINS` = the two UI aliases below; the admin refresh endpoint is **disabled** (no `ADMIN_TOKEN`) |
 | UI (Vite build uploaded with the Vercel CLI, no Git link) | <https://windscope-uk-sand.vercel.app> (a second production alias exists and is also allowed by the API's CORS list) · project `windscope-uk` | deployment **READY**, production target, aliases assigned, `VITE_API_BASE_URL` present in the build environment, normal Vite build log |
 
 **Verified after the owner disabled Vercel Authentication and allowed the two domains** (script run from this environment with a fresh
@@ -101,4 +102,4 @@ describes; DST days on real data (January is all GMT: handled and unit-tested on
   `[u]vicorn` trick and never put the pattern text in the same command as a heredoc containing it.
 * **Fonts matter for layout tests:** the app sets no font family, so CI's fallback font is wider than this sandbox's Inter; the
   wide-font overflow tests (DejaVu Sans) guard against that.
-* Working branch: `claude/zen-bohr-nfa0ly` (never push elsewhere). No PR unless the user asks.
+* Working branch: `claude/zen-bohr-nfa0ly`; `main` is the default branch and holds the project since PR #1 (merged on the owner's request). After a merge, restart the working branch from `main`. No PR unless the user asks.
