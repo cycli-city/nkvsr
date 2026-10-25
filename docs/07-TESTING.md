@@ -75,6 +75,7 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 ## Not covered / not run — be honest about these
 
 * **The live Elexon API** (schema, parameters, units, history). Needs `make verify-upstream` on a connected machine.
-* **GitHub Actions** has not executed the workflow (the push was blocked); each job's commands were run locally, and the YAML validated.
+* **GitHub Actions**: the workflow first ran on GitHub for commit `897a54e` (run 1). The backend, frontend and API-contract jobs
+  were observed passing there; the results of the Docker and Playwright jobs are recorded in `docs/STATUS.md` once observed.
 * Cross-browser (only Chromium), screen-reader testing with real assistive tech, load testing, and real cold-start timing on Render.
 * The Playwright suite runs against the synthetic snapshot, so it proves behaviour and invariants, not real-data results.

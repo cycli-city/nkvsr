@@ -16,12 +16,8 @@ _Update this file at the end of each work block. It is the first thing to read a
 
 ## Open blockers needing the user
 
-0. **`git push` is denied (HTTP 403)**: "Claude doesn't have GitHub access to cycli-city/nkvsr". Reads work
-   (`git ls-remote`, GitHub MCP), writes do not. Fix: install the Claude GitHub App on the repository
-   (<https://github.com/apps/claude/installations/select_target>) or reconnect GitHub at
-   <https://claude.ai/customize/connectors?auth_start=github&auth_start_force=1>. Until then all work is committed
-   locally on `claude/zen-bohr-nfa0ly` only (remote has just `main`). A `git bundle` backup is produced at milestones.
-   (Pushing `.github/workflows/*` additionally needs the `workflow` permission.)
+0. ~~`git push` denied (HTTP 403)~~ **Resolved**: GitHub access was reconnected and `claude/zen-bohr-nfa0ly` is pushed.
+   GitHub Actions picked up `.github/workflows/ci.yml` on that push (see the verified log below for per-job results).
 1. **Elexon access**: allow `data.elexon.co.uk` for the session, *or* run `make verify-upstream && make ingest` on a
    connected machine and commit `data/snapshots/current/` + `docs/generated/` + `backend/tests/fixtures/real/`.
 2. **Deployment**: Vercel + Render accounts (user action). Runbook: `docs/06-DEPLOYMENT.md`.
@@ -42,6 +38,7 @@ _Update this file at the end of each work block. It is the first thing to read a
 | Containers: non-root, healthy; prod refuses synthetic; dev loads it | confirmed |
 | `docker compose up` (synthetic override, prebuilt images) | both services healthy; browser -> nginx -> API verified; deep links work |
 | YAML/JSON validation of CI, compose, render, heroku, vercel | valid |
+| **GitHub Actions, CI run 1 on `897a54e`** (<https://github.com/cycli-city/nkvsr/actions/runs/40208385324>) | Backend, Frontend, API-contract and Docker+Compose jobs **passed** on GitHub's runners. The Playwright job had passed its browser install and was still running its tests when this row was written; its result is added below once observed. |
 
 **NOT verified (cannot be from this sandbox):** anything involving the live Elexon API (real field names beyond the three
 in the brief, parameter names, units, forecast resolution/cadence/horizon, rate limits, whether Jan 2026 history exists);
