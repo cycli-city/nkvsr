@@ -1,25 +1,8 @@
-"""Small, dependency-free ASGI middleware: per-client rate limiting and a snapshot-keyed response cache.
-
-Why these exist
----------------
-Every analytics response is a **pure function of (snapshot, request)**: the snapshot only changes on a
-deliberate refresh. That makes two things safe and valuable on a small free-tier host:
-
-* ``ResponseCacheMiddleware`` keeps the *rendered* (compressed) JSON, so repeat requests skip pandas, Pydantic and
-  gzip entirely, and answers ``If-None-Match`` with ``304`` without computing anything.
-* ``RateLimitMiddleware`` bounds how much CPU one client can take from everyone else.
-
-Both are pure ASGI (no ``BaseHTTPMiddleware``), so they add no body buffering or per-request task overhead, and
-both are placed *inside* the CORS middleware in ``main.py`` so that 429/304/cached responses still carry the
-correct CORS headers for the requesting origin (the cache never stores CORS headers).
-"""
+"""Snapshot-keyed response cache with weak ETags and ``304`` answers (pure ASGI)."""
 
 from __future__ import annotations
 
 import hashlib
-import json
-import math
-import time
 from collections import OrderedDict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -27,103 +10,7 @@ from urllib.parse import parse_qsl, urlencode
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-Headers = list[tuple[bytes, bytes]]
-
-MAX_KEY_LENGTH = 64  # client keys come from request headers: bound the memory one request can pin
-
-
-def _header(scope: Scope, name: bytes) -> str:
-    for key, value in scope.get("headers", []):
-        if key == name:
-            return str(value.decode("latin-1"))
-    return ""
-
-
-def client_key(scope: Scope) -> str:
-    """Best-effort client identity: first ``X-Forwarded-For`` hop, else the socket peer.
-
-    Trade-off (documented in docs/03-ARCHITECTURE.md): a client can spoof this header to evade *its own* limit, but cannot
-    use it to consume anyone else's budget; trusting only the right-most hop would instead make every user share the
-    proxy's bucket if the platform adds more than one proxy. Network-level abuse is the edge's job (Render sits behind
-    Cloudflare); this limiter protects the application's CPU from a single noisy client.
-    """
-    forwarded = _header(scope, b"x-forwarded-for").split(",")[0].strip()
-    if forwarded:
-        return forwarded[:MAX_KEY_LENGTH]
-    client = scope.get("client")
-    return str(client[0])[:MAX_KEY_LENGTH] if client else "unknown"
-
-
-def _json_error(code: str, message: str) -> bytes:
-    return json.dumps({"error": {"code": code, "message": message, "details": None}}).encode()
-
-
-class RateLimitMiddleware:
-    """Token bucket per client. ``per_minute <= 0`` disables it. Health checks and CORS preflights are exempt."""
-
-    def __init__(
-        self,
-        app: ASGIApp,
-        *,
-        per_minute: int,
-        burst: int | None = None,
-        exempt_paths: Iterable[str] = ("/api/health",),
-        max_clients: int = 10_000,
-        clock: Callable[[], float] = time.monotonic,
-    ) -> None:
-        self.app = app
-        self.rate = max(per_minute, 0) / 60.0  # tokens per second
-        self.capacity = float(burst if burst is not None else max(10, per_minute // 5))
-        self.exempt = frozenset(exempt_paths)
-        self.max_clients = max_clients
-        self.clock = clock
-        self._buckets: OrderedDict[str, tuple[float, float]] = (
-            OrderedDict()
-        )  # key -> (tokens, last_seen)
-
-    def _take(self, key: str) -> tuple[bool, float]:
-        """Consume one token. Returns (allowed, seconds until a token is available)."""
-        now = self.clock()
-        tokens, last = self._buckets.pop(key, (self.capacity, now))
-        tokens = min(self.capacity, tokens + (now - last) * self.rate)
-        allowed = tokens >= 1.0
-        if allowed:
-            tokens -= 1.0
-        self._buckets[key] = (
-            tokens,
-            now,
-        )  # re-insert last: the OrderedDict stays ordered by recency
-        while len(self._buckets) > self.max_clients:
-            self._buckets.popitem(last=False)
-        return allowed, 0.0 if allowed else (1.0 - tokens) / self.rate
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if (
-            scope["type"] != "http"
-            or self.rate <= 0
-            or scope["method"] == "OPTIONS"
-            or scope["path"] in self.exempt
-        ):
-            await self.app(scope, receive, send)
-            return
-        allowed, wait = self._take(client_key(scope))
-        if allowed:
-            await self.app(scope, receive, send)
-            return
-        body = _json_error("rate_limited", "Too many requests. Please slow down and retry shortly.")
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 429,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"content-length", str(len(body)).encode()),
-                    (b"retry-after", str(max(1, math.ceil(wait))).encode()),
-                    (b"cache-control", b"no-store"),
-                ],
-            }
-        )
-        await send({"type": "http.response.body", "body": body})
+from .shared import Headers, header
 
 
 @dataclass(frozen=True)
@@ -229,7 +116,7 @@ class ResponseCacheMiddleware:
         etag = f'W/"{digest[:32]}"'
         etag_headers: Headers = [(b"etag", etag.encode()), (b"cache-control", self.cache_control)]
 
-        presented = _header(scope, b"if-none-match")
+        presented = header(scope, b"if-none-match")
         if presented and _etag_matches(presented, etag):
             self.hits += 1
             await send(
@@ -246,7 +133,7 @@ class ResponseCacheMiddleware:
             await send({"type": "http.response.body", "body": b""})
             return
 
-        key = (version, scope["path"], query, _accepts_gzip(_header(scope, b"accept-encoding")))
+        key = (version, scope["path"], query, _accepts_gzip(header(scope, b"accept-encoding")))
         entry = self._get(key)
         if entry is not None:
             self.hits += 1
