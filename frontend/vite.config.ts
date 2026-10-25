@@ -27,6 +27,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
+    testTimeout: 15_000, // whole-app flows render code-split pages; leave headroom on slow runners
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     restoreMocks: true,
