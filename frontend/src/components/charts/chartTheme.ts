@@ -19,12 +19,16 @@ export const MARGIN = { top: 8, right: 12, bottom: 4, left: 4 } as const
 
 export const mwTick = (v: number): string => fmtNumber(v)
 
-/** Time-axis tick label that adapts to how many days are on screen (UK time). */
+/**
+ * Time-axis tick label that adapts to how many days are on screen (UK time). Up to about ten days the ticks fall more
+ * than once a day, so the label includes the time: with the date alone the axis would read "9 Jan, 9 Jan, 10 Jan, 10 Jan".
+ */
+export const DATE_ONLY_TICKS_FROM_DAYS = 10
 export function timeTick(spanDays: number): (ms: number) => string {
   const opts: Intl.DateTimeFormatOptions =
     spanDays <= 1.5
       ? { hour: '2-digit', minute: '2-digit', hour12: false }
-      : spanDays <= 4
+      : spanDays <= DATE_ONLY_TICKS_FROM_DAYS
         ? { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }
         : { day: 'numeric', month: 'short' }
   const fmt = new Intl.DateTimeFormat('en-GB', { timeZone: LONDON, ...opts })

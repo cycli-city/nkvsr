@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Brush,
   CartesianGrid,
@@ -61,7 +61,12 @@ export function TimelineChart({
   height?: number
 }) {
   const data = useMemo<Datum[]>(() => points.map((p) => ({ ...p, t: Date.parse(p.start_time) })), [points])
-  const spanDays = data.length > 1 ? ((data[data.length - 1]?.t ?? 0) - (data[0]?.t ?? 0)) / 86_400_000 : 1
+  // The labels follow what is on screen: zooming in from a month to a week switches them from dates to dates with times.
+  const [zoom, setZoom] = useState<{ start: number; end: number } | null>(null)
+  const lastIndex = data.length - 1
+  const first = data[Math.min(zoom?.start ?? 0, lastIndex)]?.t ?? 0
+  const last = data[Math.min(zoom?.end ?? lastIndex, lastIndex)]?.t ?? 0
+  const spanDays = data.length > 1 ? Math.max(last - first, 0) / 86_400_000 : 1
   const tick = useMemo(() => timeTick(spanDays), [spanDays])
   const yTicks = useMemo(
     () =>
@@ -165,6 +170,7 @@ export function TimelineChart({
               stroke={COLORS.axis}
               tickFormatter={tick}
               fill="#f8fafc"
+              onChange={(range) => setZoom({ start: range.startIndex, end: range.endIndex })}
             />
           )}
         </ComposedChart>

@@ -143,9 +143,12 @@ test.describe('Dashboard', () => {
     const handle = (await chart.locator('.recharts-brush-traveller').first().boundingBox())!
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
     await page.mouse.down()
-    await page.mouse.move(handle.x + 300, handle.y + handle.height / 2, { steps: 10 })
+    await page.mouse.move(handle.x + 800, handle.y + handle.height / 2, { steps: 16 }) // leaves about a week on screen
     await page.mouse.up()
     await expect.poll(() => line.getAttribute('d')).not.toBe(before) // the plot was zoomed
+    // Zoomed in to a few days, the axis labels carry the time as well as the date (no "9 Jan, 9 Jan, 10 Jan, 10 Jan").
+    const labels = await chart.locator('svg text').evaluateAll((els) => els.map((e) => e.textContent ?? ''))
+    expect(labels.some((l) => /\d{1,2} \w{3},? \d{2}:\d{2}/.test(l))).toBe(true)
     await page.waitForTimeout(300)
     await expect(page).not.toHaveURL(/\/vintages/)
     await expect(page.getByRole('heading', { name: 'Wind generation timeline' })).toBeVisible()

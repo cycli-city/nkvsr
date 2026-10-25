@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeIndexOf, niceTicks } from './chartTheme'
+import { activeIndexOf, niceTicks, timeTick } from './chartTheme'
 
 describe('activeIndexOf', () => {
   it('accepts the string index Recharts 3 emits and the numeric one older versions emit', () => {
@@ -27,5 +27,25 @@ describe('niceTicks', () => {
     expect(niceTicks(0)).toEqual([0])
     expect(niceTicks(Number.NaN)).toEqual([0])
     expect(niceTicks(-5)).toEqual([0])
+  })
+})
+
+describe('timeTick', () => {
+  const noon = Date.parse('2026-01-12T12:00:00Z')
+  const midnight = Date.parse('2026-01-12T00:00:00Z')
+
+  it('shows only the time when a day or less is on screen', () => {
+    expect(timeTick(1)(noon)).toBe('12:00')
+  })
+
+  it('keeps the time next to the date up to ten days, so two ticks on one day never read the same', () => {
+    const tick = timeTick(8)
+    expect(tick(midnight)).not.toBe(tick(noon))
+    expect(tick(noon)).toContain('12 Jan')
+    expect(tick(noon)).toContain('12:00')
+  })
+
+  it('uses the date alone for longer spans, where there is at most one tick a day', () => {
+    expect(timeTick(30)(noon)).toBe('12 Jan')
   })
 })
