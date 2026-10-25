@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for looking at WindScope UK. The short version: keep it correct, keep it tested, keep the docs true.
+Thanks for looking at WindScope UK. Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). The short version: keep it correct, keep it tested, keep the docs true.
 
 ## Set up
 
