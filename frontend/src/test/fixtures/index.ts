@@ -1,0 +1,10 @@
+/** Typed API response fixtures for the UI tests, one module per endpoint family: `import * as fx from '.../test/fixtures'`. */
+export * from './accuracy'
+export * from './brief'
+export * from './common'
+export * from './intervals'
+export * from './metadata'
+export * from './sensitivity'
+export * from './summary'
+export * from './timeseries'
+export * from './vintages'
