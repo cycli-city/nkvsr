@@ -9,8 +9,8 @@ user would, and again at phone and tablet size and with the keyboard only. This 
 | Run | 2026-10-25, against the final deployment: UI build served by Vercel after the last redeploy, API on Render at the branch head |
 | UI | <https://windscope-uk-sand.vercel.app> |
 | API | <https://windscope-api-5joc.onrender.com> |
-| Browser checks | **80 of 80 passed** (3 suites; the whole acceptance test is `npm run uat` from `frontend/`) |
-| API checks | **17 of 17 passed** (4th suite, `04-api-checks.cjs`) |
+| Browser checks | **80 of 80 passed** (8 browser suites in `frontend/uat/suites/`; the whole acceptance test is `npm run uat` from `frontend/`) |
+| API checks | **17 of 17 passed** (`suites/09-api-checks.cjs`) |
 | Every browser run also fails on | any console error, failed request, HTTP ≥ 400 (other than the deliberate invalid-input tests) or Content-Security-Policy violation |
 
 ## What this does and does not prove

@@ -1,0 +1,75 @@
+import type { Summary } from '../../api/types'
+import { analysis, provenance } from './common'
+
+export const distribution = {
+  n: 1487,
+  n_over: 785,
+  n_under: 702,
+  n_exact: 0,
+  share_over: 0.528,
+  share_under: 0.472,
+  mean_over_mw: 995,
+  mean_under_mw: 952,
+  max_over_mw: 5134,
+  max_under_mw: 4521,
+  signed_p05_mw: -1900,
+  signed_p10_mw: -1470,
+  signed_p50_mw: 86,
+  signed_p90_mw: 1591,
+  signed_p95_mw: 2100,
+  abs_p50_mw: 800,
+  abs_p90_mw: 1993,
+  abs_p95_mw: 2500,
+} satisfies Summary['error_distribution']
+
+export const summary = (over: Partial<Summary> = {}): Summary => ({
+  analysis: analysis(),
+  provenance: provenance(),
+  data_status: {
+    status: 'sufficient',
+    message: '99.9% of expected intervals are matched (threshold 98%).',
+    sufficient_threshold: 0.98,
+    partial_threshold: 0.9,
+  },
+  coverage: {
+    expected: 1488,
+    matched: 1487,
+    missing_forecast: 0,
+    missing_actual: 1,
+    missing_both: 0,
+    coverage: 0.999,
+  },
+  metrics: {
+    n: 1487,
+    mae_mw: 975,
+    rmse_mw: 1232,
+    bias_mw: 75,
+    wape: 0.164,
+    mean_forecast_mw: 6035,
+    mean_actual_mw: 5959,
+  },
+  error_distribution: distribution,
+  baselines: [
+    {
+      key: 'persistence',
+      label: 'Persistence at cutoff',
+      description: 'd',
+      n: 1487,
+      mae_forecast_mw: 975,
+      mae_baseline_mw: 2451,
+      skill: 0.6,
+    },
+    {
+      key: 'trailing_mean',
+      label: 'Trailing 7-day mean',
+      description: 'd',
+      n: 1487,
+      mae_forecast_mw: 975,
+      mae_baseline_mw: 2843,
+      skill: 0.66,
+    },
+  ],
+  hindsight_latest: { n: 1487, mae_mw: 278, bias_mw: 10, note: 'hindsight' },
+  forecast_age: { median_h: 0.83, p95_h: 0.83, max_h: 0.83, stale_threshold_h: 36, n_stale: 0 },
+  ...over,
+})

@@ -33,7 +33,7 @@ This plan runs **about 4:19 + 4:02 = 8:21** at a relaxed 150 words/minute, leavi
 | 5 | `https://github.com/cycli-city/nkvsr/actions` | scene 2.5 |
 
 7. **VS Code tabs, in this order**: `backend/app/domain/vintage.py` · `backend/tests/unit/test_vintage.py` · `docs/DECISIONS.md` · `backend/app/main.py` ·
-   `backend/app/api/middleware.py` · `frontend/src/api/schema.d.ts` · `frontend/src/state/useAnalysis.ts` · `frontend/src/api/hooks.ts` ·
+   `backend/app/services/analysis/__init__.py` · `backend/app/api/middleware/response_cache.py` · `frontend/src/api/schema.d.ts` · `frontend/src/state/useAnalysis.ts` · `frontend/src/api/hooks.ts` ·
    `frontend/src/components/panels/SensitivityPanel.tsx` · `frontend/csp.ts` · `backend/tests/api/test_api_exact.py` · `docs/07-TESTING.md` ·
    `docs/11-UAT-REPORT.md` · `docker-compose.yml` · `render.yaml` · `frontend/vercel.json` · `SECURITY.md`.
 
@@ -235,7 +235,7 @@ The *Clock* column is an estimate: speaking time at 150 words/minute plus the ti
 
 **Do:**
 
-1. Open `backend/app/main.py` line **109** (the middleware stack: GZip, response cache, rate limit, CORS) and `backend/app/api/middleware.py` (classes `RateLimitMiddleware` line 61 and `ResponseCacheMiddleware` line 149).
+1. Open `backend/app/services/analysis/__init__.py` (its docstring is a one-screen map: one module per endpoint), then `backend/app/main.py` line **109** (the middleware stack: GZip, response cache, rate limit, CORS) and `backend/app/api/middleware/response_cache.py` (class `ResponseCacheMiddleware`, line 36; the rate limiter is `rate_limit.py`, line 15).
 2. Switch to Tab 3 (**Ctrl+3**, the live `/api/docs`): expand `GET /api/cutoff-sensitivity` for two seconds.
 3. Back in VS Code open `frontend/src/api/schema.d.ts` (generated; first lines say so).
 
@@ -243,7 +243,7 @@ The *Clock* column is an estimate: speaking time at 150 words/minute plus the ti
 
 > The API is FastAPI with Pydantic models. Every response is a pure function of the snapshot and the query, so a small middleware caches rendered bytes with an ETag and answers conditional requests with a 304; the dashboard's first requests are pre-computed at start-up. A rate limiter, security headers and strict CORS sit in the same stack. Swagger is live here, and the generated schema feeds the front end.
 
-**On screen you should see:** main.py:109–120 · middleware.py:61, :149 · live Swagger · schema.d.ts.
+**On screen you should see:** analysis/__init__.py map · main.py:109–120 · response_cache.py:36, rate_limit.py:15 · live Swagger · schema.d.ts.
 
 ### Scene 2.4 — Frontend design  ·  ≈ 1:53–2:14 into Part 2
 

@@ -1,0 +1,62 @@
+import type { Vintages } from '../../api/types'
+import { provenance } from './common'
+
+export const vintages = (over: Partial<Vintages> = {}): Vintages => ({
+  provenance: provenance(),
+  start_time: '2026-01-15T08:30:00Z',
+  local_label: '2026-01-15 08:30',
+  delivery_date: '2026-01-15',
+  settlement_period: 18,
+  forecast_for_time: '2026-01-15T08:30:00Z',
+  forecast_block_minutes: 30,
+  forecast_alignment_note: null,
+  cutoff_local: '09:20',
+  cutoff_time: '2026-01-14T09:20:00Z',
+  actual_mw: 4985,
+  selected: {
+    publish_time: '2026-01-14T08:30:00Z',
+    forecast_mw: 5307,
+    lead_time_h: 24,
+    minutes_from_cutoff: -50,
+    eligible: true,
+    selected: true,
+  },
+  latest: {
+    publish_time: '2026-01-15T06:30:00Z',
+    forecast_mw: 5420,
+    lead_time_h: 2,
+    minutes_from_cutoff: 1270,
+    eligible: false,
+    selected: false,
+  },
+  n_vintages: 3,
+  n_eligible: 2,
+  vintages: [
+    {
+      publish_time: '2026-01-14T07:30:00Z',
+      forecast_mw: 6476,
+      lead_time_h: 25,
+      minutes_from_cutoff: -110,
+      eligible: true,
+      selected: false,
+    },
+    {
+      publish_time: '2026-01-14T08:30:00Z',
+      forecast_mw: 5307,
+      lead_time_h: 24,
+      minutes_from_cutoff: -50,
+      eligible: true,
+      selected: true,
+    },
+    {
+      publish_time: '2026-01-15T06:30:00Z',
+      forecast_mw: 5420,
+      lead_time_h: 2,
+      minutes_from_cutoff: 1270,
+      eligible: false,
+      selected: false,
+    },
+  ],
+  explanation: null,
+  ...over,
+})

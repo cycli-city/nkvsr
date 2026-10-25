@@ -2,63 +2,9 @@ import { Link } from 'react-router'
 import type { IntervalRow, IntervalSort } from '../../api/types'
 import { scrollRegion } from '../../lib/a11y'
 import { cn } from '../../lib/cn'
-import {
-  DIRECTION_LABEL,
-  errorDirection,
-  fmtDate,
-  fmtDuration,
-  fmtNumber,
-  fmtShortDateTime,
-  fmtTime,
-  UNAVAILABLE,
-} from '../../lib/format'
+import { fmtDuration, fmtShortDateTime, UNAVAILABLE } from '../../lib/format'
 import { useAnalysis } from '../../state/useAnalysis'
-import { Badge } from '../ui/primitives'
-
-const STATUS_LABEL: Record<IntervalRow['match_status'], string> = {
-  matched: 'Matched',
-  missing_forecast: 'No forecast',
-  missing_actual: 'No actual',
-  missing_both: 'No data',
-}
-
-export function StatusBadge({ status }: { status: IntervalRow['match_status'] }) {
-  return status === 'matched' ? (
-    <Badge tone="good">{STATUS_LABEL[status]}</Badge>
-  ) : (
-    <Badge tone="warn">{STATUS_LABEL[status]}</Badge>
-  )
-}
-
-/** `+120` / `−85` with direction colour AND a text/arrow cue (never colour alone). */
-export function ErrorCell({ value }: { value: number | null }) {
-  const dir = errorDirection(value)
-  if (dir === null || value === null)
-    return (
-      <span className="text-slate-500" title="Unavailable (missing data)">
-        {UNAVAILABLE}
-      </span>
-    )
-  const text = `${value > 0 ? '+' : value < 0 ? '−' : ''}${fmtNumber(Math.abs(value))}`
-  return (
-    <span
-      className={cn('tabular-nums', dir === 'over' && 'text-amber-800', dir === 'under' && 'text-teal-800')}
-      title={DIRECTION_LABEL[dir]}
-    >
-      {dir === 'over' ? '▲ ' : dir === 'under' ? '▼ ' : ''}
-      {text}
-    </span>
-  )
-}
-
-const num = (v: number | null) =>
-  v === null ? (
-    <span className="text-slate-500" title="Unavailable">
-      {UNAVAILABLE}
-    </span>
-  ) : (
-    <span className="tabular-nums">{fmtNumber(v)}</span>
-  )
+import { ErrorCell, StatusBadge, ValueCell } from './cells'
 
 interface Column {
   key: string
@@ -167,148 +113,24 @@ export function IntervalsTable({
                   <span className="text-slate-500">{UNAVAILABLE}</span>
                 )}
               </td>
-              <td className="px-3 py-1.5 text-right">{num(r.forecast_mw)}</td>
-              <td className="px-3 py-1.5 text-right">{num(r.actual_mw)}</td>
+              <td className="px-3 py-1.5 text-right">
+                <ValueCell value={r.forecast_mw} />
+              </td>
+              <td className="px-3 py-1.5 text-right">
+                <ValueCell value={r.actual_mw} />
+              </td>
               <td className="px-3 py-1.5 text-right">
                 <ErrorCell value={r.error_mw} />
               </td>
-              <td className="px-3 py-1.5 text-right">{num(r.abs_error_mw)}</td>
+              <td className="px-3 py-1.5 text-right">
+                <ValueCell value={r.abs_error_mw} />
+              </td>
               <td className="px-3 py-1.5">
                 <StatusBadge status={r.match_status} />
               </td>
               <td className="whitespace-nowrap px-3 py-1.5 text-right">
                 <Link
                   className="text-xs font-medium text-teal-700 underline-offset-2 hover:underline"
-                  to={linkTo('/vintages', { start: r.start_time })}
-                  aria-label={`Open forecast vintages for ${r.local_label}`}
-                >
-                  Vintages →
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-export function Pagination({
-  page,
-  totalPages,
-  total,
-  pageSize,
-  onPage,
-  onPageSize,
-}: {
-  page: number
-  totalPages: number
-  total: number
-  pageSize: number
-  onPage: (page: number) => void
-  onPageSize: (size: number) => void
-}) {
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1
-  const to = Math.min(total, page * pageSize)
-  return (
-    <nav
-      aria-label="Pagination"
-      className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600"
-    >
-      <p aria-live="polite">
-        Showing{' '}
-        <strong className="tabular-nums text-slate-900">
-          {fmtNumber(from)}–{fmtNumber(to)}
-        </strong>{' '}
-        of <strong className="tabular-nums text-slate-900">{fmtNumber(total)}</strong>
-      </p>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-        <label className="flex items-center gap-2 text-xs">
-          Rows per page
-          <select
-            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm"
-            value={pageSize}
-            onChange={(e) => onPageSize(Number(e.target.value))}
-          >
-            {[25, 50, 100, 250].map((n) => (
-              <option key={n}>{n}</option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-            disabled={page <= 1}
-            onClick={() => onPage(page - 1)}
-          >
-            ← Previous
-          </button>
-          <span className="whitespace-nowrap px-2 tabular-nums">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
-            disabled={page >= totalPages}
-            onClick={() => onPage(page + 1)}
-          >
-            Next →
-          </button>
-        </div>
-      </div>
-    </nav>
-  )
-}
-
-/** Compact "largest errors" table used on the dashboard (each row links to its vintages). */
-export function LargestErrorsTable({ rows }: { rows: IntervalRow[] }) {
-  const { linkTo } = useAnalysis()
-  return (
-    <div {...scrollRegion('Largest forecast errors table')} className="relative overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <caption className="sr-only">
-          The ten matched half-hours with the largest absolute forecast error
-        </caption>
-        <thead className="text-xs uppercase tracking-wide text-slate-500">
-          <tr>
-            <th scope="col" className="px-2 py-1.5 text-left font-medium">
-              Delivery (UK)
-            </th>
-            <th scope="col" className="px-2 py-1.5 text-right font-medium">
-              Forecast
-            </th>
-            <th scope="col" className="px-2 py-1.5 text-right font-medium">
-              Actual
-            </th>
-            <th scope="col" className="px-2 py-1.5 text-right font-medium">
-              Error F−A
-            </th>
-            <th scope="col" className="px-2 py-1.5 text-left font-medium">
-              Published
-            </th>
-            <th scope="col" className="px-2 py-1.5">
-              <span className="sr-only">Open</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {rows.map((r) => (
-            <tr key={r.start_time}>
-              <td className="whitespace-nowrap px-2 py-1.5 font-medium text-slate-900">
-                {fmtDate(r.delivery_date, 'short')}, {fmtTime(r.start_time)}
-              </td>
-              <td className="px-2 py-1.5 text-right">{num(r.forecast_mw)}</td>
-              <td className="px-2 py-1.5 text-right">{num(r.actual_mw)}</td>
-              <td className="px-2 py-1.5 text-right">
-                <ErrorCell value={r.error_mw} />
-              </td>
-              <td className="whitespace-nowrap px-2 py-1.5 text-slate-600">
-                {fmtShortDateTime(r.forecast_publish_time)}
-              </td>
-              <td className="px-2 py-1.5 text-right">
-                <Link
-                  className="text-xs font-medium text-teal-700 hover:underline"
                   to={linkTo('/vintages', { start: r.start_time })}
                   aria-label={`Open forecast vintages for ${r.local_label}`}
                 >
