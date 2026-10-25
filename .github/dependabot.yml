@@ -1,11 +1,19 @@
 # Keeps dependencies, base images and CI actions current. Minor/patch bumps are grouped to keep the PR list short;
 # security advisories always get their own PR regardless of grouping.
+#
+# Major versions of the runtime, the language toolchain and the frameworks (Node, TypeScript, Python libraries,
+# base images) are NOT proposed automatically: each one changes behaviour that this project's tests were written against
+# (e.g. the images and CI are pinned to Node 22 and Python 3.12), so a major upgrade is a deliberate piece of work with its own
+# pull request. GitHub Actions majors are still proposed: CI validates them immediately.
 version: 2
 updates:
   - package-ecosystem: pip
     directory: /backend
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       python-minor-and-patch:
         update-types: [minor, patch]
@@ -15,6 +23,9 @@ updates:
     directory: /frontend
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
@@ -31,9 +42,15 @@ updates:
   - package-ecosystem: docker
     directory: /backend
     schedule: { interval: monthly }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     labels: [dependencies, docker]
 
   - package-ecosystem: docker
     directory: /frontend
     schedule: { interval: monthly }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     labels: [dependencies, docker]
