@@ -16,7 +16,7 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm run build
 
 # ---------------------------------------------------------------------------------------------------
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 # nginx's entrypoint renders *.template files with the container's environment variables.
 ENV API_UPSTREAM=http://backend:8000
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
