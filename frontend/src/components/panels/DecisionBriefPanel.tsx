@@ -13,7 +13,7 @@ import {
   fmtTime,
 } from '../../lib/format'
 import { useAnalysis } from '../../state/useAnalysis'
-import { BriefChart } from '../charts/DecisionCharts'
+import { BriefChart } from '../charts/BriefChart'
 import { ChartFrame } from '../charts/chartKit'
 import { QueryBoundary } from '../states/QueryBoundary'
 import { Badge, Button, Card, LinkButton, SectionHeader, Skeleton, Stat } from '../ui/primitives'
