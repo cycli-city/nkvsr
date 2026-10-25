@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/cycli-city/nkvsr/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cycli-city/nkvsr/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/cycli-city/nkvsr/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/cycli-city/nkvsr/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Live app: <https://windscope-uk-sand.vercel.app>** · API docs (Swagger): <https://windscope-api-5joc.onrender.com/api/docs> · how to run it locally: [§10](#10-local-installation--startup)
 (the API runs on a free tier and sleeps when idle, so the very first load can take up to a minute)
@@ -98,7 +99,8 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 ├── .env.example                 every configuration variable, with safe defaults
 ├── render.yaml                  API deployment blueprint    (frontend/vercel.json for the UI)
 ├── SECURITY.md                  security model, what is and is not claimed, how to report a vulnerability
-├── .github/                     workflows (ci · codeql · dependency-audit), dependabot.yml, PR template
+├── LICENSE · CONTRIBUTING.md · CHANGELOG.md · .editorconfig
+├── .github/                     workflows (ci · codeql · dependency-audit), dependabot.yml, PR and issue templates
 ├── data/snapshots/current/      the committed REAL January 2026 snapshot (Parquet + manifest with SHA-256)
 ├── docs/                        context · assumptions · architecture · API · live-data verification · deploy · testing · demo kit · real-data findings · requirements traceability
 ├── backend/
@@ -357,5 +359,11 @@ What has **actually been run and observed** (not just written):
 
 The browser (Playwright) tests and CI's Compose smoke test run on a **synthetic** snapshot, which is stamped, banner-labelled and
 refused in production; those numbers are never results. The figures in this README come from the real snapshot.
+
+## License
+
+The code and documentation are released under the [MIT License](LICENSE). The **data** is not covered by it: Elexon BMRS data is used under
+[Elexon's data licence](https://www.elexon.co.uk/data/balancing-mechanism-reporting-agent/copyright-licence-bmrs-data/), and the committed
+snapshot in `data/snapshots/current` carries that attribution. Contributions: see [CONTRIBUTING.md](CONTRIBUTING.md); changes: [CHANGELOG.md](CHANGELOG.md).
 
 *Contains BMRS data © Elexon Limited copyright and database right.*
