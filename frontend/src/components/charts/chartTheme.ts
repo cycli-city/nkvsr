@@ -49,3 +49,14 @@ export function niceTicks(max: number, target = 6): number[] {
   for (let v = 0; v <= top; v += step) ticks.push(v)
   return ticks
 }
+
+/**
+ * Index of the data point a Recharts event refers to. Recharts 3 reports it as a *string* (its
+ * `TooltipIndex` type is `string | null`), older versions as a number, so accept both.
+ */
+export function activeIndexOf(state: { activeTooltipIndex?: unknown }): number | undefined {
+  const raw = state.activeTooltipIndex
+  const n =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : Number.NaN
+  return Number.isInteger(n) && n >= 0 ? n : undefined
+}

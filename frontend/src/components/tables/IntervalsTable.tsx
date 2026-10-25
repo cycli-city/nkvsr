@@ -1,5 +1,6 @@
 import { Link } from 'react-router'
 import type { IntervalRow, IntervalSort } from '../../api/types'
+import { scrollRegion } from '../../lib/a11y'
 import { cn } from '../../lib/cn'
 import {
   DIRECTION_LABEL,
@@ -34,7 +35,7 @@ export function ErrorCell({ value }: { value: number | null }) {
   const dir = errorDirection(value)
   if (dir === null || value === null)
     return (
-      <span className="text-slate-400" title="Unavailable (missing data)">
+      <span className="text-slate-500" title="Unavailable (missing data)">
         {UNAVAILABLE}
       </span>
     )
@@ -52,7 +53,7 @@ export function ErrorCell({ value }: { value: number | null }) {
 
 const num = (v: number | null) =>
   v === null ? (
-    <span className="text-slate-400" title="Unavailable">
+    <span className="text-slate-500" title="Unavailable">
       {UNAVAILABLE}
     </span>
   ) : (
@@ -94,7 +95,10 @@ export function IntervalsTable({
 }) {
   const { linkTo } = useAnalysis()
   return (
-    <div className="relative overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div
+      {...scrollRegion('Delivery intervals table')}
+      className="relative overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"
+    >
       <table className="min-w-full text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -153,14 +157,14 @@ export function IntervalsTable({
                   <>
                     {fmtShortDateTime(r.forecast_publish_time)}
                     <span
-                      className="ml-1 text-xs text-slate-400"
+                      className="ml-1 text-xs text-slate-500"
                       title="How long before the cutoff this forecast was published"
                     >
                       ({fmtDuration(r.forecast_age_h)} old)
                     </span>
                   </>
                 ) : (
-                  <span className="text-slate-400">{UNAVAILABLE}</span>
+                  <span className="text-slate-500">{UNAVAILABLE}</span>
                 )}
               </td>
               <td className="px-3 py-1.5 text-right">{num(r.forecast_mw)}</td>
@@ -261,7 +265,7 @@ export function Pagination({
 export function LargestErrorsTable({ rows }: { rows: IntervalRow[] }) {
   const { linkTo } = useAnalysis()
   return (
-    <div className="relative overflow-x-auto">
+    <div {...scrollRegion('Largest forecast errors table')} className="relative overflow-x-auto">
       <table className="min-w-full text-sm">
         <caption className="sr-only">
           The ten matched half-hours with the largest absolute forecast error

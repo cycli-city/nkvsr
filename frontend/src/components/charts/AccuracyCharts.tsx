@@ -16,7 +16,7 @@ import {
 import type { DailyAccuracy, Histogram, SlotAccuracy } from '../../api/types'
 import { fmtDate, fmtMW, fmtNumber, fmtPct, fmtSignedMW } from '../../lib/format'
 import { TipRow, TooltipBox } from './chartKit'
-import { AXIS_TICK, COLORS, MARGIN, mwTick } from './chartTheme'
+import { activeIndexOf, AXIS_TICK, COLORS, MARGIN, mwTick } from './chartTheme'
 
 /* ------------------------------------------------------------------ Daily error trend */
 
@@ -58,7 +58,7 @@ export function DailyErrorChart({
         data={data}
         margin={MARGIN}
         onClick={(state) => {
-          const i = typeof state.activeTooltipIndex === 'number' ? state.activeTooltipIndex : undefined
+          const i = activeIndexOf(state)
           const row = i !== undefined ? data[i] : undefined
           if (row && onSelectDay) onSelectDay(row)
         }}

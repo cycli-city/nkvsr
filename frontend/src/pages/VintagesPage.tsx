@@ -19,6 +19,7 @@ import {
   shiftHalfHours,
   utcToLondonParts,
 } from '../lib/format'
+import { scrollRegion } from '../lib/a11y'
 import { useAnalysis } from '../state/useAnalysis'
 
 const SLOTS = Array.from(
@@ -166,7 +167,10 @@ function Detail({ v }: { v: Vintages }) {
             />
           </ChartFrame>
 
-          <div className="max-h-[30rem] relative overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div
+            {...scrollRegion('Forecast publications for this half-hour')}
+            className="relative max-h-[30rem] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm"
+          >
             <table className="min-w-full text-sm">
               <caption className="sr-only">Every stored forecast publication for {v.local_label}</caption>
               <thead className="sticky top-0 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 shadow-[0_1px_0_0_#e2e8f0]">
@@ -207,9 +211,7 @@ function Detail({ v }: { v: Vintages }) {
                       ) : r.eligible ? (
                         <Badge>Eligible - superseded</Badge>
                       ) : (
-                        <Badge tone="neutral" className="opacity-80">
-                          After cutoff
-                        </Badge>
+                        <Badge tone="neutral">After cutoff</Badge>
                       )}
                     </td>
                   </tr>

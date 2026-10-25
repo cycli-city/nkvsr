@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useMetadata } from '../api/hooks'
 import { Card, SectionHeader } from '../components/ui/primitives'
 import { fmtDate, fmtDateTime, fmtNumber, fmtPct } from '../lib/format'
+import { scrollRegion } from '../lib/a11y'
 import { useAnalysis } from '../state/useAnalysis'
 
 function Block({ id, title, children }: { id?: string; title: string; children: ReactNode }) {
@@ -14,7 +15,10 @@ function Block({ id, title, children }: { id?: string; title: string; children: 
 }
 
 const Formula = ({ children }: { children: ReactNode }) => (
-  <pre className="relative overflow-x-auto rounded-lg bg-slate-900 px-3 py-2 font-mono text-xs leading-relaxed text-slate-100">
+  <pre
+    {...scrollRegion('Formula')}
+    className="relative overflow-x-auto rounded-lg bg-slate-900 px-3 py-2 font-mono text-xs leading-relaxed text-slate-100"
+  >
     {children}
   </pre>
 )
@@ -193,7 +197,7 @@ used(i)      = argmax over eligible(i) of f.publishTime        (one forecast per
 
       <Block id="interpretation" title={`What does "decisions made in ${month}" mean?`}>
         <p>The brief is ambiguous, so both readings are supported and never mixed:</p>
-        <div className="relative overflow-x-auto">
+        <div {...scrollRegion('Interpretations table')} className="relative overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-xs uppercase tracking-wide text-slate-500">
               <tr>

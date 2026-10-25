@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router'
 import { useAccuracy, useSummary } from '../../api/hooks'
 import type { Accuracy, Baseline, ErrorDistribution, Summary } from '../../api/types'
+import { scrollRegion } from '../../lib/a11y'
 import { fmtMW, fmtNumber, fmtPct, fmtSignedMW } from '../../lib/format'
 import { useAnalysis } from '../../state/useAnalysis'
 import { DailyErrorChart, ErrorHistogram, SlotChart } from '../charts/AccuracyCharts'
@@ -90,7 +91,7 @@ function ErrorProfile({ d }: { d: ErrorDistribution }) {
 
 function BaselineTable({ baselines }: { baselines: Baseline[] }) {
   return (
-    <div className="relative overflow-x-auto">
+    <div {...scrollRegion('Baseline comparison table')} className="relative overflow-x-auto">
       <table className="min-w-full text-sm">
         <caption className="sr-only">Forecast MAE compared with information-valid baselines</caption>
         <thead className="text-xs uppercase tracking-wide text-slate-500">
@@ -142,7 +143,7 @@ function BaselineTable({ baselines }: { baselines: Baseline[] }) {
 
 function DaypartTable({ rows }: { rows: Accuracy['by_daypart'] }) {
   return (
-    <div className="relative overflow-x-auto">
+    <div {...scrollRegion('Day versus night table')} className="relative overflow-x-auto">
       <table className="min-w-full text-sm">
         <caption className="sr-only">
           Accuracy by day (07:00–23:00) versus night (23:00–07:00) UK time

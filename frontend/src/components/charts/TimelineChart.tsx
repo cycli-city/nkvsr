@@ -13,7 +13,7 @@ import {
 import type { TimeSeriesPoint } from '../../api/types'
 import { DIRECTION_LABEL, errorDirection, fmtDateTime, fmtMW, fmtSignedMW } from '../../lib/format'
 import { TipRow, TooltipBox } from './chartKit'
-import { AXIS_TICK, COLORS, MARGIN, mwTick, niceTicks, timeTick } from './chartTheme'
+import { activeIndexOf, AXIS_TICK, COLORS, MARGIN, mwTick, niceTicks, timeTick } from './chartTheme'
 
 interface Datum extends TimeSeriesPoint {
   t: number
@@ -84,7 +84,7 @@ export function TimelineChart({
         data={data}
         margin={MARGIN}
         onClick={(state) => {
-          const index = typeof state.activeTooltipIndex === 'number' ? state.activeTooltipIndex : undefined
+          const index = activeIndexOf(state)
           const point = index !== undefined ? data[index] : undefined
           if (point && onSelect) onSelect(point)
         }}

@@ -58,9 +58,8 @@ export function ChartFrame({
           ))}
         </ul>
       )}
-      <div role="img" aria-label={summary}>
-        {children}
-      </div>
+      <p className="sr-only">{summary}</p>
+      <div>{children}</div>
       {footnote && <p className="mt-2 text-xs text-slate-500">{footnote}</p>}
     </figure>
   )

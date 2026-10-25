@@ -15,6 +15,7 @@ export default defineConfig({
   preview: { port: 4173 },
   build: { sourcemap: false, chunkSizeWarningLimit: 900 },
   test: {
+    include: ['src/**/*.test.{ts,tsx}'],
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
