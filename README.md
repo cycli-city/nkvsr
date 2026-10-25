@@ -354,7 +354,7 @@ What has **actually been run and observed** (not just written):
 | Backend mutation checks (cutoff `<=`, `backward`, error sign, baseline lag, forecast-hour rounding, publication-time rule) | ✅ each caught by tests |
 | Frontend: `tsc --strict`, `eslint`, `prettier --check`, Vitest | ✅ clean / 98 passing |
 | Frontend: Playwright E2E + axe + CSP-violation sweep (Chromium, production build, real API) | ✅ 48 passing (on the labelled synthetic snapshot) |
-| **Live acceptance test** (`npm run uat`: every control of the deployed site, real data, phone/tablet/keyboard) | ✅ 80 of 80 checks + 17 of 17 API checks; found and fixed two timeline-zoom defects. Report: [`docs/11-UAT-REPORT.md`](docs/11-UAT-REPORT.md) |
+| **Live acceptance test** (`npm run uat`: every control of the deployed site, real data, phone/tablet/keyboard) | ✅ 85 of 85 checks + 17 of 17 API checks; found and fixed two timeline-zoom defects. Report: [`docs/11-UAT-REPORT.md`](docs/11-UAT-REPORT.md) |
 | Docker: API and web images build; run non-root; healthy; production refuses synthetic data | ✅ |
 | Docker Compose stack: service discovery, health-gated start, browser → nginx → API | ✅ (run on synthetic data) |
 | **Live Elexon API: schema, parameters, history coverage** | ✅ **`make verify-upstream` PASS on 2026-10-25**; WINDFOR unit and scope remain assumptions |

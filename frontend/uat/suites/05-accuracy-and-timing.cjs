@@ -168,7 +168,7 @@ const { t, eq, ok, until, UI } = L
 
   L.setSection('Z. Cleanliness')
   await t(
-    'Z01',
+    'Z05',
     'No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite',
     async () => {
       const csp = await page.evaluate(() => window.__csp)

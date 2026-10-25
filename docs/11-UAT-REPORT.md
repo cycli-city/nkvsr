@@ -6,10 +6,10 @@ user would, and again at phone and tablet size and with the keyboard only. This 
 
 | | |
 |---|---|
-| Run | 2026-10-25, against the final deployment: UI build served by Vercel after the last redeploy, API on Render at the branch head |
+| Run | 2026-10-25, against the final deployment: `main` at `c5a4874` (after the structural refactor, PR #10), UI redeployed to Vercel from that source, API on Render live on the same commit |
 | UI | <https://windscope-uk-sand.vercel.app> |
 | API | <https://windscope-api-5joc.onrender.com> |
-| Browser checks | **80 of 80 passed** (8 browser suites in `frontend/uat/suites/`; the whole acceptance test is `npm run uat` from `frontend/`) |
+| Browser checks | **85 of 85 passed** (8 browser suites, `frontend/uat/suites/01…08`; the whole acceptance test is `npm run uat` from `frontend/`, one run, back to back) |
 | API checks | **17 of 17 passed** (`suites/09-api-checks.cjs`) |
 | Every browser run also fails on | any console error, failed request, HTTP ≥ 400 (other than the deliberate invalid-input tests) or Content-Security-Policy violation |
 
@@ -37,6 +37,7 @@ Everything else found during the run was a mistake in a test script (timing, amb
 * After a click-through from the timeline and *Back*, the dashboard returns to where it was, but the Decision brief's date and the timeline zoom reset
   (they are component state, not URL state).
 * The first request after the free-tier API has been idle can take about a minute; the UI says so while it waits.
+* A run started within a minute of an API deploy can time out a check: the new instance is still pre-warming its caches on a fraction of a CPU. The first run after the final deploy hit this twice (the 10-day range in B08, a result count read too early in H08 — the latter a race in the test, now fixed); both suites passed when run alone and the full run above passed end to end afterwards.
 
 ## Results
 
@@ -46,7 +47,7 @@ Everything else found during the run was a mistake in a test script (timing, amb
 |---|---|---|---|
 | A01 | Dashboard loads on a hard URL with real (non-synthetic) data and a page title | ✅ pass | title="WindScope UK — Day-ahead wind forecast analytics" |
 | A02 | Brand + tagline are shown | ✅ pass |  |
-| A03 | Provenance bar: source, FUELHH + WINDFOR links to Elexon docs, unit, refresh time | ✅ pass | https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/FUELHH/stream https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/s… |
+| A03 | Provenance bar: source, FUELHH + WINDFOR links to Elexon docs, unit, refresh time | ✅ pass | https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/FUELHH/stream https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/stream |
 | A04 | Data-quality note link jumps to Methodology #quality | ✅ pass |  |
 | A05 | Footer: licence link opens Elexon licence in a new tab; scope disclaimer present | ✅ pass |  |
 | A06 | Skip link is the first tab stop and moves focus to main content | ✅ pass |  |
@@ -62,7 +63,7 @@ Everything else found during the run was a mistake in a test script (timing, amb
 | B04 | Every cutoff preset is selectable and changes the explanatory sentence + URL | ✅ pass | 09:20, 09:50, 08:00, custom |
 | B05 | Custom time: input appears, 08:45 is applied (URL + sentence), results recomputed | ✅ pass |  |
 | B06 | Reset returns to the default view and clears URL state | ✅ pass |  |
-| B07 | Quick ranges: every chip narrows the data, shows pressed state, and the last one can be undone by Reset | ✅ pass | Full period→1488 · 1 Jan – 7 Jan→1488 · 8 Jan – 14 Jan→1488 · 15 Jan – 21 Jan→1488 · 22 Jan – 28 Jan→1488 · 29 Jan – 31 Jan→1488 |
+| B07 | Quick ranges: every chip narrows the data, shows pressed state, and the last one can be undone by Reset | ✅ pass | Full period→1488 · 1 Jan – 7 Jan→336 · 8 Jan – 14 Jan→336 · 15 Jan – 21 Jan→336 · 22 Jan – 28 Jan→336 · 29 Jan – 31 Jan→144 |
 | B08 | Date inputs: editing "to" narrows results; an out-of-range date shows the validation message | ✅ pass |  |
 | B09 | A shared URL restores the exact view in a brand-new browser context (no stored state) | ✅ pass |  |
 | B10 | Selection is carried across pages (nav links keep ?cutoff/?basis) and back button works | ✅ pass |  |
@@ -91,17 +92,10 @@ Everything else found during the run was a mistake in a test script (timing, amb
 | ID | Check | Result | Observed |
 |---|---|---|---|
 | E01 | Chart draws actual + forecast lines; footnote says "No gaps" | ✅ pass |  |
-| E02 | Hover tooltip shows time, actual, forecast at cutoff, error with direction, and publication time | ✅ pass | Tue, 13 Jan 2026, 20:30 GMT \|  \| Actual \| 10,426 MW \| Forecast at cutoff \| 10,138 MW \| Error (F − A) \| −288 MW · under-forecast \| Published… |
+| E02 | Hover tooltip shows time, actual, forecast at cutoff, error with direction, and publication time | ✅ pass | Tue, 13 Jan 2026, 20:30 GMT \| \| Actual \| 10,426 MW \| Forecast at cutoff \| 10,138 MW \| Error (F − A) \| −288 MW · under-forecast \| Published \| Mon, 12 |
 | E03 | Hindsight toggle is opt-in: unchecked by default, adds a clearly-labelled dashed series when checked, removes it again | ✅ pass |  |
 | E04 | Zoom handles (Brush): two handles under the chart; dragging one zooms the plot and does NOT navigate away (regression) | ✅ pass |  |
 | E05 | Clicking a point opens the vintages of that exact half-hour | ✅ pass |  |
-
-### Z. Cleanliness
-
-| ID | Check | Result | Observed |
-|---|---|---|---|
-| Z01 | No console errors, failed requests, HTTP ≥ 400 or CSP violations in part 1 | ✅ pass | 0 expected 422 lines from the deliberate invalid-range test |
-| Z01 | No console errors, unexpected failed requests, HTTP ≥ 400 (other than the deliberate ones above) or CSP violations in part 2 | ✅ pass | 8 expected console/network lines from deliberate failure tests |
 
 ### F. Forecast accuracy panel
 
@@ -138,7 +132,7 @@ Everything else found during the run was a mistake in a test script (timing, amb
 | H07 | Minimum \|error\| filter: ≥ 5,000 MW leaves a short list whose rows all meet the threshold | ✅ pass | 50 rows ≥ 5,000 MW |
 | H08 | Search: "2026-01-12 01:00" finds exactly that half-hour; "Sat" finds only Saturdays; nonsense → empty state; Clear filters resets | ✅ pass | 240 half-hours · delivery 2 Jan – 1 Feb · cutoff 09:20 UK ti |
 | H09 | Row action "Vintages →" opens the forecast vintages of exactly that half-hour | ✅ pass |  |
-| H10 | CSV export: real file download, header states the sign convention, 1,488 data rows for the whole window | ✅ pass | windscope_decision_date_2026-01-02_2026-02-01.csv · 1488 rows · header: start_time_utc,local_time,settlement_period,decision_cutoff_utc,forecast_va… |
+| H10 | CSV export: real file download, header states the sign convention, 1,488 data rows for the whole window | ✅ pass | windscope_decision_date_2026-01-02_2026-02-01.csv · 1488 rows · header: start_time_utc,local_time,settlement_period,decision_cutoff_utc,forecast_valid_f… |
 | H11 | CSV export honours filters (over-forecast only → 1,261 rows) | ✅ pass |  |
 
 ### I. Forecast vintages
@@ -195,6 +189,18 @@ Everything else found during the run was a mistake in a test script (timing, amb
 | N01 | Tab reaches nav, controls, KPI links and chart toggle in a sensible order; every focused element shows a visible focus indicator | ✅ pass | 40 stops, first: Skip to main content → Dashboard → Intervals → Vintages → Methodology → FUELHH → WINDFOR → 1 data-quality note |
 | N02 | Keyboard: change cutoff with arrow keys on the select, sort an Intervals column with Enter, step the decision brief with the Previous button via Space | ✅ pass |  |
 
+### Z. Cleanliness
+
+| ID | Check | Result | Observed |
+|---|---|---|---|
+| Z01 | No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite | ✅ pass |  |
+| Z02 | No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite | ✅ pass | 6 expected 422 lines from the deliberate invalid-range test |
+| Z03 | No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite | ✅ pass |  |
+| Z04 | No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite | ✅ pass |  |
+| Z05 | No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite | ✅ pass |  |
+| Z06 | No console errors, failed requests, HTTP >= 400 or Content-Security-Policy violations in this suite | ✅ pass |  |
+| Z07 | No console errors, unexpected failed requests, HTTP >= 400 (other than the deliberate ones above) or Content-Security-Policy violations in this suite | ✅ pass | 8 expected console/network lines from deliberate failure tests |
+
 ### P. API checks (deployed API)
 
 | ID | Check | Result | Observed |
@@ -216,3 +222,4 @@ Everything else found during the run was a mistake in a test script (timing, amb
 | P15 | CORS: the UI origin is echoed; an arbitrary origin gets no Access-Control-Allow-Origin | ✅ pass |  |
 | P16 | CORS preflight from the UI origin succeeds | ✅ pass |  |
 | P17 | conditional request with the ETag → 304 (no recomputation); security headers present | ✅ pass |  |
+

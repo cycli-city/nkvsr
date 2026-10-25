@@ -153,8 +153,8 @@ const { t, eq, ok, until, UI } = L
 
   L.setSection('Z. Cleanliness')
   await t(
-    'Z01',
-    'No console errors, unexpected failed requests, HTTP ≥ 400 (other than the deliberate ones above) or CSP violations in part 2',
+    'Z07',
+    'No console errors, unexpected failed requests, HTTP >= 400 (other than the deliberate ones above) or Content-Security-Policy violations in this suite',
     async () => {
       const csp = await page.evaluate(() => window.__csp)
       const unexpected = problems.filter(

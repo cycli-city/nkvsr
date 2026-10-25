@@ -25,7 +25,7 @@ First complete version.
 - Response cache with ETags, start-up pre-warm, per-client rate limit, security headers, strict Content-Security-Policy, hardened containers.
 - Docker and Compose, GitHub Actions CI, CodeQL, dependency audit, Dependabot (minor and patch updates).
 - 358 backend tests, 98 Vitest tests, 48 Playwright tests (with axe accessibility audits) and a live acceptance suite
-  (80 browser and 17 API checks) for the deployed site.
+  (85 browser and 17 API checks) for the deployed site.
 - Deployed: UI on Vercel, API on Render.
 
 ### Fixed (found during acceptance testing)
