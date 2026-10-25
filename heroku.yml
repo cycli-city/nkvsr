@@ -1,6 +1,0 @@
-# Heroku (container stack) alternative for the API. NOT verified in this repository's build environment.
-#   heroku stack:set container -a <app> && git push heroku main
-#   heroku config:set APP_ENV=production CORS_ORIGINS=https://<ui-origin> -a <app>
-build:
-  docker:
-    web: backend/Dockerfile

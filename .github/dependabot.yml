@@ -1,0 +1,39 @@
+# Keeps dependencies, base images and CI actions current. Minor/patch bumps are grouped to keep the PR list short;
+# security advisories always get their own PR regardless of grouping.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies, backend]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies, frontend]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies, ci]
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: { interval: monthly }
+    labels: [dependencies, docker]
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule: { interval: monthly }
+    labels: [dependencies, docker]
