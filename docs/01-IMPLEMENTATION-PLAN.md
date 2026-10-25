@@ -22,7 +22,7 @@ Effort budget: ~16 h equivalent. Priority = **correct, verifiable, end-to-end** 
 4. `elexon/normalize.py` + `contract.py` — parsing, dedupe, quality report (tested with deterministic JSON).
 5. `elexon/client.py` — chunked, retried, timeout-bounded httpx client (tested with `httpx.MockTransport`).
 6. `store/` — Parquet snapshot + manifest + refresh state; synthetic dev generator (guarded).
-7. `services/analysis.py` and API routers/schemas; error handling; CORS.
+7. `services/analysis/` (one module per endpoint) and API routers/schemas; error handling; CORS.
 8. CLI: `ingest`, `verify-upstream`, `generate-synthetic-dev`, `export-openapi`.
 
 ## Frontend build order

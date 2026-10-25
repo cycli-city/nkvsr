@@ -90,6 +90,8 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 
 ## 4. Directory & file structure
 
+Each area has its own README with a layout map and a "where do I change X?" table: [`backend/`](backend/README.md), [`frontend/`](frontend/README.md), [`docs/`](docs/README.md).
+
 ```
 .
 ├── README.md                    this file
@@ -102,27 +104,31 @@ Key decisions (full ADR log in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 ├── LICENSE · CONTRIBUTING.md · CODE_OF_CONDUCT.md · CHANGELOG.md · .editorconfig
 ├── .github/                     workflows (ci · codeql · dependency-audit), dependabot.yml, PR and issue templates
 ├── data/snapshots/current/      the committed REAL January 2026 snapshot (Parquet + manifest with SHA-256)
-├── docs/                        context · assumptions · architecture · API · live-data verification · deploy · testing · demo kit · real-data findings · requirements traceability
-├── backend/
+├── docs/                        numbered docs (index in docs/README.md): context · assumptions · architecture · API · deploy · testing · demo · findings · traceability · UAT
+├── backend/                     FastAPI + pandas API                                   → backend/README.md
 │   ├── Dockerfile · pyproject.toml
 │   ├── app/
 │   │   ├── main.py · config.py · errors.py · cli.py
-│   │   ├── domain/              timeutil · windows · vintage · matching · metrics · baselines · breakdowns
+│   │   ├── domain/              pure analytics: timeutil · windows · vintage · matching · metrics · baselines · breakdowns
 │   │   ├── elexon/              endpoints · contract · client · normalize      (the only upstream-aware code)
-│   │   ├── store/               snapshot (Parquet+manifest) · dataset · synthetic (dev only, guarded)
-│   │   ├── services/            analysis · ingestion · verification · prewarm
-│   │   └── api/                 schemas · deps · middleware (rate limit, response cache) · routes/{analysis,system}
+│   │   ├── store/               snapshot (Parquet + manifest) · dataset · synthetic (dev only, guarded)
+│   │   ├── services/
+│   │   │   ├── analysis/        one module per endpoint: summary · series · accuracy · intervals · vintages · sensitivity · brief · metadata
+│   │   │   └── ingestion · verification · prewarm
+│   │   └── api/                 deps · routes/{analysis,system} · schemas/ (by endpoint family) · middleware/ (rate_limit, response_cache)
 │   └── tests/                   unit · api · integration; deterministic fixtures + one recorded real day (fixtures/real)
-└── frontend/
+└── frontend/                    React + TypeScript + Vite + Tailwind + Recharts        → frontend/README.md
     ├── Dockerfile · nginx.conf.template · vercel.json · csp.ts · playwright.config.ts
     ├── openapi.json             exported API contract → src/api/schema.d.ts (generated)
-    ├── e2e/                     Playwright end-to-end + axe accessibility specs
+    ├── e2e/                     Playwright end-to-end + axe accessibility specs (hermetic, run in CI)
+    ├── uat/                     acceptance test of a deployed site: lib + suites/ (one file per area)
     └── src/
         ├── api/                 typed client, TanStack Query hooks, generated types
         ├── state/useAnalysis    analysis selection ⇄ URL
         ├── lib/                 formatting (UK time), presets, interval query parsing
         ├── components/          layout · ui · states · charts · tables · kpi · panels
-        └── pages/               Dashboard · Intervals · Vintages · Methodology
+        ├── pages/               Dashboard · Intervals · Vintages · Methodology (bigger pages keep parts in a sub-folder)
+        └── test/                setup, typed API mock, fixtures/ (one module per endpoint)
 ```
 
 ## 5. Technology choices & rationale

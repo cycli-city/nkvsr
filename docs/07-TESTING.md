@@ -40,7 +40,7 @@ make check       # everything CI runs except e2e + docker
 | Bias sign convention; WAPE with zero denominator; empty input | `test_metrics.py` |
 | DST: 23/25-hour days, BST cutoffs, settlement periods | `test_timeutil.py`, `format.test.ts` |
 | No leakage in baselines | `test_baselines_breakdowns_windows.py` (tampering with future actuals changes nothing) |
-| Interpretation ambiguity never mixed | `test_api_exact.py::test_delivery_basis_is_a_distinct_window…`, `app.test.tsx` basis switch, e2e |
+| Interpretation ambiguity never mixed | `test_api_exact.py::test_delivery_basis_is_a_distinct_window…`, `pages/DashboardPage.test.tsx` basis switch, e2e |
 | Upstream outage keeps serving the old snapshot | `TestFailureKeepsServingPreviousSnapshot` |
 | Synthetic data must never reach production | `TestProductionSafeguards`, container check |
 | Corrupt snapshot refused | `test_corrupt_snapshot_is_refused_not_served`, `TestSnapshot` |
@@ -49,9 +49,9 @@ make check       # everything CI runs except e2e + docker
 | Hourly forecasts vs half-hourly actuals: every half-hour scored, never interpolated, never borrows the next hour, cutoff applies to the held value | `test_forecast_alignment.py`, `test_api_hourly_forecasts.py`, `test_ingestion_e2e.py` (hourly feed) |
 | Real-feed facts the rules depend on (hourly grid, eight publications, 07:30 in force and 09:30 ten minutes late at 09:20) | `test_real_recorded_responses.py` |
 | An actual published late cannot inform the persistence baseline early | `test_baselines_breakdowns_windows.py` |
-| A cached response is never stale after a refresh or a redeploy; `304` only for the same content | `test_middleware.py::TestResponseCache`, `test_api_cache_and_security.py` |
+| A cached response is never stale after a refresh or a redeploy; `304` only for the same content | `test_response_cache.py`, `test_api_cache_and_security.py` |
 | Cached responses never carry another origin's CORS headers | `test_cors_headers_belong_to_the_asking_origin_even_on_cached_responses` |
-| One noisy client cannot starve others; health checks are never limited | `test_middleware.py::TestRateLimit`, `test_api_cache_and_security.py::TestRateLimit` |
+| One noisy client cannot starve others; health checks are never limited | `test_rate_limit.py`, `test_api_cache_and_security.py::TestRateLimit` |
 | The decision-time sensitivity equals the headline at the chosen cutoff and the closed form at every other | `test_api_sensitivity.py` |
 | The UI's CSP is strict, identical on Vercel / nginx / preview, and the app works under it | `security-headers.test.ts`, `security.spec.ts` |
 
@@ -67,11 +67,11 @@ Done by hand (script-assisted), each mutation reverted afterwards; every one mad
 | WAPE returns 0 when Σactual = 0 | metrics tests |
 | trailing-mean baseline shifted by 1 day (uses D−1) | baseline tests |
 | cutoff on delivery day instead of D−1 | timeutil tests |
-| frontend: ignore delivery-basis day shift / carry range across bases / wrong sign | `app.test.tsx`, `format.test.ts` |
+| frontend: ignore delivery-basis day shift / carry range across bases / wrong sign | `pages/DashboardPage.test.tsx`, `format.test.ts` |
 | forecast block rounded **up** instead of down (a half-hour would take the next hour's forecast) | at least 12 tests across `test_forecast_alignment.py` and `test_api_hourly_forecasts.py` (the run was truncated at 12) |
 | persistence baseline ignores a late publication time | `test_an_actual_published_late_is_not_used_before_its_publication_time` |
 | response cache key ignores the snapshot version (stale data after a refresh) | `test_a_new_snapshot_version_invalidates_everything`, `test_a_refreshed_snapshot_invalidates_cached_responses_and_etags` |
-| rate limiter always lets requests through | 4 tests in `test_middleware.py` and `test_api_cache_and_security.py` |
+| rate limiter always lets requests through | 4 tests in `test_rate_limit.py` and `test_api_cache_and_security.py` |
 | error responses stored in the cache | `test_errors_are_never_cached_and_are_marked_no_store`, `test_errors_and_non_analytics_endpoints_are_not_cached` |
 | CSP loosened/tightened wrongly (stylesheets blocked) | `security.spec.ts` fails on the first `securitypolicyviolation` |
 
