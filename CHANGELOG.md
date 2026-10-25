@@ -3,6 +3,13 @@
 All notable changes to this project. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Structure only, no behaviour change: the analysis service, API schemas and middleware are packages with one module per concern; the
+  Methodology, Vintages and Accuracy views, the Intervals table, the charts, the UI tests and the acceptance suites are split into one
+  component or area per file. Every source file is now under about 240 lines. Backend, frontend and docs folders have their own README.
+
 ## [0.1.0] - 2026-10-25
 
 First complete version.
