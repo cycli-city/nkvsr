@@ -157,7 +157,7 @@ class TestAdminRefresh:
         assert r.status_code == 404 and error_of(r)["code"] == "admin_disabled"
 
     def test_rejects_missing_or_wrong_token(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        app, client = self.client(tmp_path, "s3cret")
+        app, client = self.client(tmp_path, "s3cret-s3cret-s3cret")
         app.state.ingestion = self.FakeIngestion()
         with client:
             assert client.post("/api/admin/refresh").status_code == 401
@@ -168,10 +168,10 @@ class TestAdminRefresh:
         assert app.state.ingestion.calls == 0
 
     def test_upstream_failure_is_a_502_with_the_reason(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
-        app, client = self.client(tmp_path, "s3cret")
+        app, client = self.client(tmp_path, "s3cret-s3cret-s3cret")
         app.state.ingestion = self.FakeIngestion(UpstreamUnavailableError("Elexon is down"))
         with client:
-            r = client.post("/api/admin/refresh", headers={"X-Admin-Token": "s3cret"})
+            r = client.post("/api/admin/refresh", headers={"X-Admin-Token": "s3cret-s3cret-s3cret"})
         assert r.status_code == 502 and error_of(r) == {
             "code": "upstream_error",
             "message": "Elexon is down",
@@ -181,7 +181,7 @@ class TestAdminRefresh:
     def test_success_returns_snapshot_summary(self, tmp_path) -> None:  # type: ignore[no-untyped-def]
         from tests.conftest import manifest_for
 
-        settings = make_settings(tmp_path, admin_token="s3cret")
+        settings = make_settings(tmp_path, admin_token="s3cret-s3cret-s3cret")
         manifest = manifest_for(settings).model_copy(
             update={"actuals_rows": 5, "forecasts_rows": 7, "warnings": ["w"]}
         )
@@ -189,7 +189,7 @@ class TestAdminRefresh:
         app = create_app(settings)
         app.state.ingestion = self.FakeIngestion(manifest=manifest)
         with TestClient(app) as client:
-            r = client.post("/api/admin/refresh", headers={"X-Admin-Token": "s3cret"})
+            r = client.post("/api/admin/refresh", headers={"X-Admin-Token": "s3cret-s3cret-s3cret"})
         assert r.status_code == 200
         assert (
             r.json()["actuals_rows"] == 5

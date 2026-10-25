@@ -40,3 +40,6 @@ data/tmp/
 playwright-report/
 test-results/
 qa-artifacts/
+
+# Sandbox-only helper (never commit)
+.sandbox-ca.crt

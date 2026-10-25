@@ -115,6 +115,22 @@ class TestSettings:
             Settings(_env_file=None, data_dir=tmp_path, **{field: value})  # type: ignore[call-arg]
 
 
+class TestAdminToken:
+    def test_empty_or_blank_disables_the_endpoint(self, tmp_path: Path) -> None:
+        for raw in ("", "   "):
+            assert Settings(_env_file=None, data_dir=tmp_path, admin_token=raw).admin_token is None  # type: ignore[call-arg]
+
+    def test_short_tokens_are_rejected_at_startup(self, tmp_path: Path) -> None:
+        with pytest.raises(ValidationError, match="at least 16"):
+            Settings(_env_file=None, data_dir=tmp_path, admin_token="changeme")  # type: ignore[call-arg]
+
+    def test_long_token_is_accepted_and_trimmed(self, tmp_path: Path) -> None:
+        s = Settings(
+            _env_file=None, data_dir=tmp_path, admin_token="  0123456789abcdef-long-enough  "
+        )  # type: ignore[call-arg]
+        assert s.admin_token == "0123456789abcdef-long-enough"
+
+
 FUELHH_OK = [
     {
         "dataset": "FUELHH",

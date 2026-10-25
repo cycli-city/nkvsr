@@ -1,0 +1,26 @@
+# Render Blueprint for the API (Docker). The web UI is deployed separately on Vercel (frontend/vercel.json).
+#   Render dashboard -> New -> Blueprint -> select this repository.
+# After the first deploy: set CORS_ORIGINS to your Vercel URL (e.g. https://<project>.vercel.app).
+services:
+  - type: web
+    name: windscope-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PYTHON_ENV_NOTE
+        value: "The image ships data/snapshots/current. If the repo has none, the API ingests on first boot."
+      # Fetch from Elexon on first boot ONLY when the image carries no committed snapshot.
+      - key: AUTO_INGEST_ON_START
+        value: "true"
+      # Set to the deployed UI origin, e.g. https://windscope-uk.vercel.app (comma-separate several).
+      - key: CORS_ORIGINS
+        sync: false
+      # Optional: a random 32+ char secret enabling POST /api/admin/refresh. Remove to keep it disabled.
+      - key: ADMIN_TOKEN
+        generateValue: true

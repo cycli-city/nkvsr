@@ -67,6 +67,18 @@ class Settings(BaseSettings):
             return [part.strip() for part in value.split(",") if part.strip()]
         return value
 
+    @field_validator("admin_token")
+    @classmethod
+    def _validate_admin_token(cls, value: str | None) -> str | None:
+        """Empty means disabled; anything else must be long enough not to be guessable."""
+        if value is None or value.strip() == "":
+            return None
+        if len(value.strip()) < 16:
+            raise ValueError(
+                "ADMIN_TOKEN must be at least 16 characters (or empty to disable the endpoint)"
+            )
+        return value.strip()
+
     @field_validator("decision_cutoff_local")
     @classmethod
     def _validate_cutoff(cls, value: str) -> str:

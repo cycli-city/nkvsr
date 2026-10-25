@@ -47,3 +47,31 @@ runtime is size-constrained for pandas/pyarrow and stateless; a container keeps 
 Free-tier cold start is handled by a "waking the API" UI state.
 
 **ADR-013 — No database, no auth, no background scheduler in v1.** Out of scope; optional token-guarded refresh only.
+
+**ADR-014 — Normalise every timestamp to `datetime64[ns, UTC]` at module boundaries.** pandas 3 parses ISO strings to
+microsecond resolution and `merge_asof` rejects mixed units (and `.asi8` is unit-relative). One helper (`as_utc_ns`) is
+used wherever timestamps enter the domain or snapshot layers. A regression here would silently break vintage selection.
+
+**ADR-015 — Docker: no bind mount on the API service; snapshot baked into the image; tools run as the host user.**
+The container is non-root (UID 10001); a root-owned host bind mount made it unable to write (found by running the real
+stack). The vetted snapshot is data *about the build*, so it belongs in the image; `ingest`/`verify` are one-shot
+`tools` profile services that write to `./data` as `HOST_UID`. Synthetic demo uses a tmpfs owned by the container user.
+
+**ADR-016 — nginx fronts the SPA and proxies `/api` in Docker (single origin, no CORS); Vercel uses direct calls + CORS.**
+`expires` (not `add_header`) is used for cache rules in locations, because a location-level `add_header` silently drops
+server-level security headers. For Vercel, direct browser→API calls are preferred over a Vercel rewrite proxy, whose
+timeout could be shorter than a free-tier cold start.
+
+**ADR-017 — E2E runs on the synthetic snapshot and asserts invariants, not wind numbers.** It proves behaviour (sort
+order, eligibility consistency between chart/table/summary, drill-downs, resilience, a11y) while remaining runnable
+without network access. It is *not* evidence about real data.
+
+**ADR-018 — Config hygiene.** `.env.example` has no inline comments after values (Compose parses `KEY=  # c` as
+`KEY='# c'`, which once enabled the admin endpoint); a test guards this. `ADMIN_TOKEN` must be empty (disabled) or ≥ 16 chars.
+
+**ADR-019 — Chart interaction goes through `activeIndexOf`.** Recharts 3 reports the active index as a *string*; unit tests
+under jsdom cannot hit-test, so only the browser E2E layer catches this class of bug. Charts therefore never assume a numeric index.
+
+**ADR-020 — Accessibility is enforced by tests (axe-core, WCAG 2.1 A/AA) rather than by intention.** Charts use an `sr-only`
+text alternative instead of `role="img"` around a focusable SVG; scrolling regions are focusable and labelled; text colours
+meet 4.5:1.
