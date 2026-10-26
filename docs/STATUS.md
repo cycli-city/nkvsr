@@ -12,23 +12,15 @@ _Update this file at the end of each work block. It is the first thing to read a
 | 4 Frontend | **Done**: dashboard (incl. "Does the decision time matter?"), intervals, vintages, methodology; strict CSP. 98 Vitest + 48 Playwright/axe tests + an 85-check (+17 API) live acceptance suite (`docs/11-UAT-REPORT.md`). |
 | 5 Docker/CI/README | **Done**: images built/run, Compose verified (read-only, no capabilities), CI green on GitHub, CodeQL + dependency audit + Dependabot configured, README reflects real results. |
 | 6 QA + demo kit | **Done**: browser-verified on the real snapshot (0 axe violations on 4 pages, no console errors); `08-DEMO-GUIDE.md` filled with real numbers; `09-REAL-DATA-FINDINGS.md`. |
-| 7 Deploy + report | **Deployed and verified (2026-10-25)**: API on Render, UI on Vercel (see "Deployment" below); **merged to `main` via PR #1**, so the public repository shows the project. Remaining, user-side: literal incognito check of each URL, the video (run sheet in `docs/08`) and the form. |
+| 7 Deploy + report | **Deployed and verified (2026-10-25)**: API on Render, UI on Vercel (see "Deployment" below); **merged to `main` via PR #1**, so the public repository shows the project. The owner opened each URL in an incognito window on 2026-10-26 (all opened). Remaining, user-side: the video and the form (run sheet in `docs/08`). |
 
 ## Open items needing the user
 
-0a. **GitHub repository settings** (no tool in the build environment can change them; 2 minutes in the browser, or one command with the GitHub CLI):
-   ```bash
-   gh repo edit cycli-city/nkvsr \
-     --description "Day-ahead wind forecast accuracy analytics for GB power procurement (Elexon FUELHH + WINDFOR). React + TypeScript, FastAPI + pandas, Docker." \
-     --homepage "https://windscope-uk-sand.vercel.app" \
-     --add-topic wind-power,energy,forecasting,elexon,fastapi,react,typescript,pandas,docker,data-visualization \
-     --enable-wiki=false
-   ```
-   Also useful: *Settings → Code security*: enable private vulnerability reporting, Dependabot alerts and secret scanning; *Settings → General*: automatically delete head branches.
+0a. *(Done 2026-10-26, by the owner in the browser)* GitHub repository settings: About box (description, website, topics), wiki off, automatic deletion of merged branches, Dependabot security updates, private vulnerability reporting and alerts, stale branches removed, release `v0.1.0` published on `main`. No tool in the build environment can change these (its proxy refuses settings and release writes).
 0. *(Done)* The project is on `main` (PR #1, merge commit `49d4288`); Render builds `main`.
-1. **Incognito check** of the two URLs below (the owner disabled Vercel Authentication, which had put a login page in front of the UI). Then the **video** and the **form**.
-2. **Video**: recording/upload is a user action; script, real numbers and checklist in `docs/08-DEMO-GUIDE.md`.
-3. **Submission form** and incognito check of every URL (user action).
+1. *(Done 2026-10-26)* The owner opened each URL in an incognito window: all opened. The owner had disabled Vercel Authentication, which had put a login page in front of the UI.
+2. **Video**: recording/upload is a user action; script, real numbers and checklist in `docs/08-DEMO-GUIDE.md` (spoken text only: the scenes' *Say* blocks).
+3. **Submission form** with the UI, API and repository URLs and the unlisted video link (user action).
 4. *(Optional, domain)* Ask Elexon/NESO whether WINDFOR covers the same scope as FUELHH WIND, and its unit; that would explain or rule out the +1.7 GW bias (`docs/09` §2).
 
 Resolved earlier: the `git push` 403 (GitHub access reconnected) and the Elexon network block (host allowed).
@@ -48,7 +40,7 @@ synthetic banner, the hourly-forecast note and the licence link, charts draw, `/
 on a hard refresh, switching the interpretation changes URL and numbers (to 2,145 MW) and a pasted URL restores the view, axe WCAG
 2.1 A/AA reports 0 violations, security headers present, no horizontal scroll at 390 px on all four pages, no console errors or
 failed requests. One check initially failed (numbers read before the slow free-tier API had answered); re-tested with a proper
-wait: the numbers updated in 656 ms. This is **not literally incognito**: the owner still checks each URL in an incognito window.
+wait: the numbers updated in 656 ms. This is **not literally incognito**; the owner separately opened each URL in an incognito window on 2026-10-26 (all opened).
 Redeploying the UI: `cd frontend && npx vercel@65.2.0 deploy --prod --yes --scope <team> --build-env VITE_API_BASE_URL=<render url>`
 (needs a Vercel token in `VERCEL_TOKEN`); the API redeploys itself on every push to the branch.
 
