@@ -69,17 +69,30 @@ so ("Still waiting for the API…"), and the client waits up to 60 s. Warm it be
 
 ### Keeping the free-tier API awake
 
-`.github/workflows/keep-alive.yml` calls `/api/health` every 10 minutes (and checks that `data_loaded` is `true`), so visitors normally
-never meet the one-minute wake-up. What to know about it:
+Render stops a free service after 15 minutes without a request, and the next visitor then waits about a minute. To avoid that, something
+has to call the API at least every 15 minutes. Two things in this project do, and one of them is much more reliable than the other.
 
-* **Best effort.** GitHub may delay scheduled runs when it is busy; a gap longer than 15 minutes lets the service sleep, and the next
-  visitor sees the "Still waiting for the API…" hint. GitHub also switches scheduled workflows off after 60 days without repository
-  activity. For a second, independent pinger, add a free 5-minute HTTP monitor (for example UptimeRobot) on the same URL.
+**1. An external monitor (recommended; takes 5 minutes, needs an account the repository cannot create for you).** A free plan of a service
+such as UptimeRobot checks a URL every 5 minutes and also emails you if the API is down:
+
+1. Create a free account at <https://uptimerobot.com> and choose **+ New monitor**.
+2. Monitor type **HTTP(s)**, friendly name `WindScope API`, URL `https://<your-api>.onrender.com/api/health`, interval **5 minutes**.
+3. Create the monitor. The health endpoint is exempt from the rate limit, costs almost nothing, and the monitor can also assert that the
+   body contains `"data_loaded":true`.
+
+**2. A scheduled GitHub Actions workflow (`.github/workflows/keep-alive.yml`, a supplement).** It calls `/api/health` and fails if
+`data_loaded` is not `true`. It asks to run every 10 minutes, but **GitHub does not honour that on this repository**: from its schedule it
+started the workflow only three times in about ten hours on 2026-10-25/26 (gaps of two to five hours; GitHub documents scheduled runs as
+best effort that may be delayed or dropped under load). On its own it therefore does **not** keep the service awake. GitHub also switches
+scheduled workflows off after 60 days without repository activity.
+
+Other things to know:
+
 * **Free hours.** Render gives a workspace 750 free instance hours per month and suspends its free services when they run out. One service
   awake all month is 720–744 hours, so this fits, but only if that workspace runs no other free service.
 * **Spirit of the free tier.** Render staff have said on their community forum that deliberately keeping a free service awake goes against
-  the spirit of the plan. It is meant for the review period: turn it off afterwards (*Actions → Keep API awake → ⋯ → Disable workflow*,
-  or delete the file) or move the API to a paid instance.
+  the spirit of the plan. Keep it for the review period, then remove the monitor and disable the workflow (*Actions → Keep API awake →
+  ⋯ → Disable workflow*), or move the API to a paid instance, which never sleeps.
 * **Housekeeping.** The workflow deletes its own older runs (the latest three are kept) so the Actions tab stays readable.
 
 ## 3. Deploy the UI on Vercel
