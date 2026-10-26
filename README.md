@@ -337,10 +337,10 @@ says so while it waits). An external monitor keeps it warm (setup in `docs/06-DE
 
 ## 17. AI assistance disclosure
 
-**AI tools were used extensively to build this project.** The code, tests, configuration and documentation were produced with
-Anthropic's **Claude Code** (an AI coding assistant) working interactively with the repository owner, who set the requirements
-and priorities. The AI also performed browser-based QA and iterative debugging. All output is reviewable in the Git history
-and was verified by running the test suites, linters, type-checkers, containers and a real browser (see [Verification status](#verification-status)).
+**AI tools were used to build this project.** The code, tests, configuration and documentation were produced with
+Anthropic's **Claude Code** (an AI coding assistant), working with the repository owner, who set the requirements and priorities.
+All output is reviewable in the Git history and was verified by running the test suites, linters, type-checkers, containers and a
+real browser (see [Verification status](#verification-status)).
 
 ---
 
