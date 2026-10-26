@@ -55,7 +55,7 @@ This plan runs **about 4:19 + 4:02 = 8:21** at a relaxed 150 words/minute, leavi
 | 2.2 | The core rule, and what the live data changed | 4:55–5:38 | 90 |
 | 2.3 | Backend: API, cache, limits, contract | 5:38–6:12 | 69 |
 | 2.4 | Frontend design | 6:12–6:34 | 44 |
-| 2.5 | Quality evidence | 6:34–7:18 | 86 |
+| 2.5 | Quality evidence | 6:34–7:18 | 88 |
 | 2.6 | Docker and deployment | 7:18–7:45 | 55 |
 | 2.7 | Trade-offs, limits, next steps, AI disclosure | 7:45–8:21 | 80 |
 | | **End** | **8:21** | |
@@ -272,9 +272,9 @@ The *Clock* column is an estimate: speaking time at 150 words/minute plus the ti
 3. Open `docs/11-UAT-REPORT.md` and point at the *Defect found by this UAT* table.
 4. Switch to Tab 5 (**Ctrl+5**): the latest CI run with five green jobs; click the CodeQL entry for one second.
 
-**Say** (86 words):
+**Say** (88 words):
 
-> Quality. 358 backend tests, 98 front-end tests, 48 browser tests with accessibility audits, and 80 acceptance checks that drive the deployed site. Fixtures have closed-form answers, so a wrong vintage gives a wrong number. Mutation checks: flip less-or-equal, flip backward to nearest, flip the sign; each is caught. The live acceptance run found a bug the unit tests could not: dragging the zoom handle navigated away. Fixed, with a regression test that fails without the fix. CI covers lint, types, tests, contract drift, Docker and CodeQL.
+> Quality. 358 backend tests, 98 front-end tests, 48 browser tests with accessibility audits, and over a hundred acceptance checks that drive the deployed site. Fixtures have closed-form answers, so a wrong vintage gives a wrong number. Mutation checks: flip less-or-equal, flip backward to nearest, flip the sign; each is caught. The live acceptance run found a bug the unit tests could not: dragging the zoom handle navigated away. Fixed, with a regression test that fails without the fix. CI covers lint, types, tests, contract drift, Docker and CodeQL.
 
 **On screen you should see:** `make test` ends with 358 passed (backend) and 98 passed (Vitest) · green CI run · CodeQL.
 
@@ -360,7 +360,7 @@ Source: the committed snapshot (`docs/09-REAL-DATA-FINDINGS.md`). Say them as th
 | Is it fast? | Warm requests are ~10 ms locally; on the free host an uncached view took 0.3–1.0 s (about 3 s for the decision-timing view) and a cached one ~0.25 s, which is just the network round trip; the dashboard's first-load requests are cache hits right after start-up. Rendered responses are cached per snapshot with ETags (`304` with no computation), the default views are pre-computed at start-up, and below-the-fold analysis loads only when scrolled to. |
 | Does the exact cutoff matter? | Not here: the 07:30 run is the latest at any cutoff 08:00–09:29; 09:30 (ten minutes after the default) improves MAE by 26 MW (1.3 %). |
 | DST? | UTC internally; local only at the edges; 46/50-half-hour days and BST cutoffs tested. January has no change. |
-| What's not verified? | Be upfront. Verified: the live Elexon API (PASS), the real January data, CI green on GitHub (all five jobs plus CodeQL), the live deployment, and 80 acceptance checks that drive every control of the deployed site (`docs/11-UAT-REPORT.md`). Not verified: WINDFOR's unit and scope (assumed MW, scope unknown), which part of the hour a value describes, DST days on real data (January is all GMT), cross-browser use (Chromium only), real assistive technology, and load. |
+| What's not verified? | Be upfront. Verified: the live Elexon API (PASS), the real January data, CI green on GitHub (all five jobs plus CodeQL), the live deployment, and 102 acceptance checks (85 in the browser, 17 on the API) that drive every control of the deployed site (`docs/11-UAT-REPORT.md`). Not verified: WINDFOR's unit and scope (assumed MW, scope unknown), which part of the hour a value describes, DST days on real data (January is all GMT), cross-browser use (Chromium only), real assistive technology, and load. |
 
 
 ---
