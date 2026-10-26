@@ -14,8 +14,8 @@ accurate that forecast turned out to be, using only Elexon's FUELHH (actuals) an
 > **Status at a glance** (details in [Verification status](#verification-status))
 > The analytics engine, API, UI, Docker, CI and tests are built and tested end to end, the **real January 2026 Elexon
 > data has been fetched, verified against the live API and committed** (`data/snapshots/current`), and the app is
-> **deployed and reachable without a login** (§15). **What is still not done:** the demo video and the owner's own incognito
-> check of each URL before submitting the form.
+> **deployed and reachable without a login** (§15); the owner also opened each URL in an incognito window (2026-10-26). The walkthrough
+> video accompanies the submission form; it is not stored in this repository (its script is `docs/08-DEMO-GUIDE.md`).
 
 ---
 
@@ -317,8 +317,8 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 | API (Render, Docker) | <https://windscope-api-5joc.onrender.com> ([health](https://windscope-api-5joc.onrender.com/api/health) · [docs](https://windscope-api-5joc.onrender.com/api/docs)) | ✅ production mode, real snapshot loaded, CORS limited to the UI |
 
 Deployed on 2026-10-25 and checked **anonymously in a fresh browser profile with no stored state** (28 scripted checks, see
-`docs/STATUS.md`), then re-checked after the final redeploy (13 checks, including *no Content-Security-Policy violation on any page*). That is close to, but not literally, an incognito window: the owner still has to open each URL in incognito
-before submitting. The API runs on Render's **free tier, which sleeps when idle**: a scheduled workflow (`keep-alive.yml`, every 10 minutes) keeps it
+`docs/STATUS.md`), then re-checked after the final redeploy (13 checks, including *no Content-Security-Policy violation on any page*). Those scripted checks are not a literal incognito window, so the owner also opened each URL in an incognito window
+on 2026-10-26: all of them opened. The API runs on Render's **free tier, which sleeps when idle**: a scheduled workflow (`keep-alive.yml`, every 10 minutes) keeps it
 awake, and if it ever has slept the first request can take about a minute (the UI says so while it waits). The API is built from the `main` branch (every merge redeploys it). Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
 [`docs/06-DEPLOYMENT.md`](docs/06-DEPLOYMENT.md); configs: [`frontend/vercel.json`](frontend/vercel.json),
@@ -361,7 +361,8 @@ What has **actually been run and observed** (not just written):
 | **Real January 2026 snapshot** | ✅ **ingested and committed** (`data/snapshots/current`); results in [`docs/09`](docs/09-REAL-DATA-FINDINGS.md) |
 | GitHub Actions CI | ✅ run 9 (`e8ccab6`, security + performance + decision-timing work): all 5 jobs passed; CodeQL (Python, TypeScript) and the dependency audit also passed. An earlier run had caught a real 320 px layout bug (fixed). Details: `docs/STATUS.md` |
 | **Vercel / Render deployment** | ✅ deployed 2026-10-25; 28 anonymous checks in a fresh browser profile (API health/metadata/docs, CORS allow- and deny-lists, admin endpoint disabled, real numbers on the dashboard, deep links, URL-restores-view, axe WCAG 2.1 A/AA, security headers, no horizontal scroll at 390 px, no console errors) |
-| **Owner's incognito check of each URL, demo video, form** | ❌ **still to do: see `docs/06-DEPLOYMENT.md` §6, `docs/08-DEMO-GUIDE.md`** |
+| **Owner's incognito check of each URL** | ✅ done by the owner on 2026-10-26: every URL opened in an incognito window (checklist: `docs/06-DEPLOYMENT.md` §6) |
+| Demo video and submission form | accompany the submission; not part of this repository (script: `docs/08-DEMO-GUIDE.md`) |
 
 The browser (Playwright) tests and CI's Compose smoke test run on a **synthetic** snapshot, which is stamped, banner-labelled and
 refused in production; those numbers are never results. The figures in this README come from the real snapshot.
