@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **Live app: <https://windscope-uk-sand.vercel.app>** · API docs (Swagger): <https://windscope-api-5joc.onrender.com/api/docs> · how to run it locally: [§10](#10-local-installation--startup)
-(the API runs on a free tier; a scheduled workflow keeps it awake, but if it has been idle the very first load can still take up to a minute)
+(the API runs on a free tier that sleeps when idle, so the very first load after a quiet spell can take up to a minute; the UI says so while it waits)
 
 **Day-ahead wind forecast analytics for GB power procurement.** For every half-hour of a delivery day it shows
 the national wind forecast a buyer could actually see at the day-ahead decision cutoff, and quantifies how
@@ -318,8 +318,9 @@ Common parameters: `basis`, `from`, `to`, `cutoff`. Every error uses `{"error": 
 
 Deployed on 2026-10-25 and checked **anonymously in a fresh browser profile with no stored state** (28 scripted checks, see
 `docs/STATUS.md`), then re-checked after the final redeploy (13 checks, including *no Content-Security-Policy violation on any page*). Those scripted checks are not a literal incognito window, so the owner also opened each URL in an incognito window
-on 2026-10-26: all of them opened. The API runs on Render's **free tier, which sleeps when idle**: a scheduled workflow (`keep-alive.yml`, every 10 minutes) keeps it
-awake, and if it ever has slept the first request can take about a minute (the UI says so while it waits). The API is built from the `main` branch (every merge redeploys it). Step-by-step instructions
+on 2026-10-26: all of them opened. The API runs on Render's **free tier, which sleeps after 15 idle minutes**: the first request after that takes about a minute (the UI
+says so while it waits). An external monitor keeps it warm (setup in `docs/06-DEPLOYMENT.md`, "Keeping the free-tier API awake"); the repository's own
+`keep-alive.yml` health check is only a supplement, because GitHub starts scheduled workflows far less often than asked. The API is built from the `main` branch (every merge redeploys it). Step-by-step instructions
 (including the CORS / `VITE_API_BASE_URL` wiring and a verification checklist) are in
 [`docs/06-DEPLOYMENT.md`](docs/06-DEPLOYMENT.md); configs: [`frontend/vercel.json`](frontend/vercel.json),
 [`render.yaml`](render.yaml).

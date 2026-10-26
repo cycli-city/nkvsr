@@ -1,11 +1,12 @@
 name: Keep API awake
 
 # The API runs on Render's free plan, which spins a service down after 15 minutes without inbound traffic; the next visitor
-# then waits about a minute. This calls the health endpoint every 10 minutes so the deployed demo stays warm.
-# Trade-offs and how to turn it off: docs/06-DEPLOYMENT.md, "Keeping the free-tier API awake".
+# then waits about a minute. This asks for a health check every 10 minutes (at off-peak minutes), but GitHub treats schedules as
+# best effort: on this repository it started the workflow only a few times a day, so it is a supplement to an external monitor,
+# not a replacement. See docs/06-DEPLOYMENT.md, "Keeping the free-tier API awake", for the measurements and how to turn it off.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "3-59/10 * * * *"
   workflow_dispatch:
 
 permissions:
