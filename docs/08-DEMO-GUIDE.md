@@ -57,7 +57,7 @@ This plan runs **about 4:19 + 4:02 = 8:21** at a relaxed 150 words/minute, leavi
 | 2.4 | Frontend design | 6:12–6:34 | 44 |
 | 2.5 | Quality evidence | 6:34–7:18 | 88 |
 | 2.6 | Docker and deployment | 7:18–7:45 | 55 |
-| 2.7 | Trade-offs, limits, next steps, AI disclosure | 7:45–8:21 | 80 |
+| 2.7 | Trade-offs, limits and next steps | 7:45–8:21 | 61 |
 | | **End** | **8:21** | |
 
 The *Clock* column is an estimate: speaking time at 150 words/minute plus the time the actions take (measured in the dry run). Your own pace decides the real times; the only hard limit is 10:00 in total.
@@ -294,19 +294,19 @@ The *Clock* column is an estimate: speaking time at 150 words/minute plus the ti
 
 **On screen you should see:** docker-compose.yml:15–19 · render.yaml · vercel.json.
 
-### Scene 2.7 — Trade-offs, limits, next steps, AI disclosure  ·  ≈ 3:26–4:02 into Part 2
+### Scene 2.7 — Trade-offs, limits and next steps  ·  ≈ 3:26–4:02 into Part 2
 
-**Where:** VS Code → README §16–17
+**Where:** VS Code → README §16
 
 **Do:**
 
-1. Open `SECURITY.md` for two seconds (section *Known limitations*), then the README at **16. Known limitations** and **17. AI assistance disclosure**.
+1. Open `SECURITY.md` for two seconds (section *Known limitations*), then the README at **16. Known limitations** and stay there to the end.
 
-**Say** (80 words):
+**Say** (61 words):
 
-> Trade-offs, stated openly. No database: one month does not need one. The 09:20 cutoff is an upper bound on what a buyer knew. WINDFOR's unit and scope are undocumented, so part of the plus 1.7 gigawatt bias may be definitional. Daylight saving is unit-tested, but January has no clock change. Next: more months, lead-time analysis, scheduled refresh. Built with Claude Code as an AI assistant, as the README discloses, and verified by the tests you have seen. Thank you.
+> Trade-offs, stated openly. No database: one month does not need one. The 09:20 cutoff is an upper bound on what a buyer knew. WINDFOR's unit and scope are undocumented, so part of the plus 1.7 gigawatt bias may be definitional. Daylight saving is unit-tested, but January has no clock change. Next: more months, lead-time analysis, scheduled refresh. Thank you.
 
-**On screen you should see:** README §16, §17 · SECURITY.md.
+**On screen you should see:** README §16 · SECURITY.md.
 
 ## 5. If something goes wrong while recording
 
